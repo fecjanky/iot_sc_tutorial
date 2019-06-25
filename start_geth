@@ -1,0 +1,6 @@
+#!/bin/sh
+WORK_DIR=$(dirname $0)
+GETH_BIN=$WORK_DIR/geth-linux-amd64-1.8.27-4bcc0a37/geth
+
+$GETH_BIN --datadir $WORK_DIR/datadir --networkid 2018 --port 30306 --nodiscover --rpc --rpcapi db,personal,eth,net,web3,debug --rpccorsdomain="*" --rpcaddr 0.0.0.0 --rpcport 8545 console
+
