@@ -1,0 +1,53 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<script>
+		function getJSON(endpoint,continuation){
+			xmlhttp = new XMLHttpRequest();
+			xmlhttp.open("GET",endpoint, true);
+			xmlhttp.onreadystatechange=function(){
+				if (xmlhttp.readyState==4 && xmlhttp.status==200){
+					let obj = JSON.parse(xmlhttp.responseText);
+					continuation(obj);
+				}
+			}
+			xmlhttp.send();
+		}
+
+		function getAccounts(){
+			getJSON('/accounts',(obj) => {
+				document.getElementById('accounts').innerHTML = obj}
+				);
+		}
+
+		function setContract(){
+			console.log("setContract")
+			let contractAddress = document.getElementById('contractAddress').value
+			console.log(contractAddress)
+			getJSON(`/setContract?contractAddress=${contractAddress}`,(obj)=>{
+				document.getElementById('activeContract').innerHTML =  obj['activeContract'];
+			});
+		}
+
+		function getWinner() {
+			getJSON("/getWinner", result => document.getElementById("winner").innerHTML = result["winner"])
+		}
+
+	</script>
+</head>
+<body>
+	<div>
+		<label class="title">Contract address</label>
+		<input type="text" id="contractAddress" name="contractAddress" > 
+		<button onClick="setContract()">Set</button>
+		<label class="title">Active Contract:</label><label class="title" id="activeContract">None</label>
+	</div>
+	<div>
+		<button onClick="getAccounts()">Get Accounts</button>
+	</div>
+	<div>
+		<button onClick="getWinner()">Get Winner</button><label id="winner"></label>
+	</div>
+	<div id="accounts"></div>
+</body>
+</html>
