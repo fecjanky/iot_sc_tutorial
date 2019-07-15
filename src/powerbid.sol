@@ -44,16 +44,12 @@ contract PowerBid {
         consumptionEndTime = consumptionStartTime + consumptionPeriodSeconds;
     }
 
-    /// Bid on the auction with the value sent
-    /// together with this transaction.
-    /// The value will only be refunded if the
-    /// auction is not won.
-    function bid(uint _price) public payable {
+    /// Bid on the auction 
+    function bid(uint _price) public {
         // No arguments are necessary, all
         // information is already part of
-        // the transaction. The keyword payable
-        // is required for the function to
-        // be able to receive Ether.
+        // the transaction. Function is not reciving Ether
+        // as the consumer pays
 
         // Revert the call if the bidding
         // period is over.
@@ -62,22 +58,22 @@ contract PowerBid {
             "Auction already ended."
         );
 
-        // If the price is not better, send the
+        // If the price is not better, snd the
         // money back.
         require(
-            _price < bestPrice || bestSupplier == address(0),
+            _price < bestPrice || (bestSupplier == address(0) && _price <= maxPrice),
             "There already is a better price."
         );
         
         require(!auctionEnded, "can't bid on an auction that has ended");
 
-        bestSupplier = msg.sender;
         bestPrice = _price;
-        emit BestPriceUpdated(msg.sender, msg.value);
+        bestSupplier = msg.sender;
+        emit BestPriceUpdated(msg.sender, bestPrice);
     }
 
 
-    /// Withdraw a bid that was overbid or withdraw the gain by the sender.
+    /// Withdraw the gain by the sender.
     function withdraw_gain() public returns (bool) {
         require(auctionEnded);
         
@@ -91,6 +87,7 @@ contract PowerBid {
         return true;
     }
     
+    // withdraw price of energy by the best supplier
     function withdraw() public returns (bool) {
         require(powerConsumed);
         
@@ -139,6 +136,11 @@ contract PowerBid {
         price = bestPrice;
 
         emit AuctionEnded(bestSupplier, bestPrice);
+    }
+    
+    function auction_time_left() public view returns (uint) {
+        if(now > consumptionStartTime)return 0;
+        else return consumptionStartTime - now;
     }
     
     function consumePower() public
