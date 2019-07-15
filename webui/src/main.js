@@ -10,22 +10,34 @@ var MongoStore = require('connect-mongo')(session);
 
 var fs = require("fs");
 var Web3 = require("web3");
-
-var abi = require("./ballot.json")
-
 let web3 = new Web3(Web3.providers.WebsocketProvider('ws://localhost:8546'));
+var abi = require("./ballot.json")
 var contractInstance;
+
+//connect to MongoDB
+mongoose.connect('mongodb://localhost/testForAuth',{ useNewUrlParser: true ,useCreateIndex: true});
+var db = mongoose.connection;
+
+//use sessions for tracking logins
+app.use(session({
+  secret: 'work hard',
+  resave: true,
+  saveUninitialized: false,
+  store: new MongoStore({
+    mongooseConnection: db
+  })
+}));
 
 // parse incoming requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-
 
 // serve static files from template
 app.use(express.static(__dirname + '/webTemplate'));
 
 // include routes
 var routes = require('./routes/router');
+
 app.use('/', routes);
 
 // catch 404 and forward to error handler
