@@ -12,7 +12,7 @@ let web3 = new Web3(Web3.providers.WebsocketProvider('ws://localhost:8546'));
 var contractInstance;
 
 app.get('/', (req, response) => {
-	    fs.readFile('index.html',function (err, data){
+	    fs.readFile('../index.html',function (err, data){
 		            response.writeHead(200, {'Content-Type': 'text/html','Content-Length':data.length});
 		            response.write(data);
 		            response.end();
