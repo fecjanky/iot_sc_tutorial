@@ -7,7 +7,7 @@ contract PowerBid {
     address payable public consumer;
     uint public consumptionStartTime; // t0
     uint public consumptionEndTime;  // t1
-    uint public requiredEnergy; // in watts hour 
+    uint public requiredNRG; // in watts hour 
     uint public maxPrice;  // max flat rate price for watts * hours (t1-t0) in the given period
 
     // Current state of the auction.
@@ -33,13 +33,13 @@ contract PowerBid {
     constructor(
         uint auctionPeriodSeconds,
         uint consumptionPeriodSeconds,
-        uint _requiredEnergy
+        uint requiredEnergy
     ) public payable {
-        require(_requiredEnergy > 0, "required energy must be greater than 0 wh");
+        require(requiredEnergy > 0, "required energy must be greater than 0 wh");
         require(msg.value > 0 ,"max price must be greater than 0");
         consumer = msg.sender;
         maxPrice = msg.value;
-        requiredEnergy = _requiredEnergy;
+        requiredNRG = requiredEnergy;
         consumptionStartTime = now + auctionPeriodSeconds;
         consumptionEndTime = consumptionStartTime + consumptionPeriodSeconds;
     }
@@ -153,6 +153,6 @@ contract PowerBid {
         //2. Effects
         powerConsumed = true;
         
-        emit Consumed(msg.sender, bestSupplier,requiredEnergy,bestPrice);
+        emit Consumed(msg.sender, bestSupplier,requiredNRG,bestPrice);
     }
 }

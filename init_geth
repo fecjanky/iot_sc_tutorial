@@ -1,0 +1,8 @@
+#!/bin/sh
+WORK_DIR=$(dirname $0)
+GETH_BIN=$WORK_DIR/geth-linux-amd64-1.8.27-4bcc0a37/geth
+
+rm -rf $WORK_DIR/datadir
+$GETH_BIN --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
+$GETH_BIN --datadir $WORK_DIR/datadir account new
+
