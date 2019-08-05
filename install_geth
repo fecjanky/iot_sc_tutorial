@@ -1,0 +1,4 @@
+#!/bin/sh
+GETH_VERSION=$(cat $WORK_DIR/geth_version)
+wget https://gethstore.blob.core.windows.net/builds/$GETH_VERSION.tar.gz
+tar -xzf $GETH_VERSION

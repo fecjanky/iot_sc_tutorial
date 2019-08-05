@@ -1,6 +1,7 @@
 #!/bin/sh
 WORK_DIR=$(dirname $0)
-GETH_BIN=$WORK_DIR/geth-linux-amd64-1.8.27-4bcc0a37/geth
+GETH_VERSION=$(cat $WORK_DIR/geth_version)
+GETH_BIN=$WORK_DIR/$GETH_VERSION/geth
 
 rm -rf $WORK_DIR/datadir
 $GETH_BIN --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
