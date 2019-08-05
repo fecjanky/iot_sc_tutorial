@@ -3,7 +3,7 @@ var router = express.Router();
 var User = require('../model/user');
 
 var Web3 = require("web3");
-let web3 = new Web3(Web3.providers.WebsocketProvider('ws://localhost:8546'));
+let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
 // GET route for reading data
 router.get('/', function (req, res, next) {

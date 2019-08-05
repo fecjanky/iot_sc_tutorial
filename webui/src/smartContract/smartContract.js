@@ -1,16 +1,15 @@
 fs = require("fs");
 solc = require('solc');
 path = require('path');
-mongodb = require('mongodb');
+MongoClient = require('mongodb').MongoClient;
 Web3 = require("web3");
 BSON = require('bson');
 let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
 
-var MongoClient = mongodb.MongoClient;
-var url = "mongodb://localhost:27017/";
+var url = "mongodb://localhost:27017/Solidity";
 
-let readFile = function(fileName, encoding = 'utf8') {
+let readFile = function (fileName, encoding = 'utf8') {
     return new Promise((resolve, reject) => {
         fs.readFile(fileName, encoding, (err, data) => {
             if (err) reject(err);
@@ -37,29 +36,25 @@ class PowerBid {
 
 
     find_file() {
-        return new Promise(function(resolve, reject) {
-            this.db_operation().then(function(collection) {
-                collection.findOne({ filename: this.filename }, function(err, result) {
-                    if (err) reject(err);
-                    else resolve(result);
-                });
-            }.bind(this), reject);
+        return MongoClient.connect(url).then(function (conn) {
+            return conn.db("Solidity").collection("compiled").findOne({ filename: this.filename }).then(result => {
+                conn.close();
+                return result;
+            });
         }.bind(this));
     }
 
     compile_and_cache(data) {
         let compiled = this.compile_string(data);
-        this.db_operation().then((collection) => {
+        MongoClient.connect(url).then(function (conn) {
             let compiledContract = compiled.contracts["powerbid.sol"]["PowerBid"];
             let compiledContractBSON = this.serialize_compiled(compiledContract);
-
-            collection.updateOne({ filename: this.filename }, { $set: { content: data, result: compiledContractBSON } }, (err, res) => {
-                if (err) console.log(err);
-                else {
-                    console.log("succefully persisted compiled contract...");
-                }
-            });
-        }, console.log);
+            conn.db("Solidity").collection("compiled")
+                .updateOne({ filename: this.filename },
+                    { $set: { content: data, result: compiledContractBSON } },
+                    { upsert: true })
+                .then(result => conn.close());
+        }.bind(this), console.log);
         return compiled.contracts["powerbid.sol"]["PowerBid"];
     }
 
@@ -68,19 +63,6 @@ class PowerBid {
     }
     deserialize_compiled(bsonData) {
         return BSON.deserialize(Buffer.from(bsonData, 'base64'));
-    }
-
-    db_operation(collection = "compiled") {
-        return new Promise(function(resolve, reject) {
-            MongoClient.connect(url, function(err, db) {
-                if (err) reject(err);
-                else {
-                    var dbo = db.db("Solidity");
-                    resolve(dbo.collection(collection));
-                    // TODO: solve db closure
-                }
-            });
-        }.bind(this));
     }
 
     getConfig(data) {
@@ -111,13 +93,13 @@ class PowerBid {
     }
 
     compile() {
-        return new Promise(function(resolve, reject) {
+        return new Promise(function (resolve, reject) {
             readFile(this.filename).then(data => resolve(this.compile_string(data)), reject);
         }.bind(this));
     }
 
     compile_cached() {
-        return Promise.all([this.find_file(), readFile(this.filename)]).then(function(values) {
+        return Promise.all([this.find_file(), readFile(this.filename)]).then(function (values) {
             if (values[0] === null || values[0].content !== values[1]) {
                 console.log("file has changed or not compiled yet, recompiling source...");
                 return this.compile_and_cache(values[1]);
@@ -130,31 +112,31 @@ class PowerBid {
 
 
     persist_contract(ethAddress) {
-        Promise.all([this.db_operation("contracts"), this.find_file()]).then(function(args) {
+        console.log("persisting contract to db...");
+        Promise.all([MongoClient.connect(url), this.find_file()]).then(function (args) {
             if (args[1] === null) {
                 console.log("file must be compiled before persisting contract...");
+
             } else {
-                args[0].insertOne({ address: ethAddress, contract: args[1] }, (err, res) => {
+                let collection = args[0].db("Solidity").collection("contracts");
+                collection.insertOne({ address: ethAddress, contract: args[1] }, (err, res) => {
                     if (err) console.log(err);
                     else console.log("succefully persisted contract with address:" + ethAddress);
                 });
             }
+            args[0].close();
         }.bind(this));
     }
 
     deploy_from_db() {
-        return new Promise(function(resolve, reject) {
-            this.db_operation("contracts").then(function(collection) {
-                collection.findOne({ address: this.address }, (err, res) => {
-                    if (err) { reject(err); } else {
-                        let compiled = this.deserialize_compiled(res.contract.result);
-                        let contract = new web3.eth.Contract(compiled.abi, res.address);
-                        resolve({ obj: this, contract: contract });
-                    }
-                });
-            }.bind(this), reject);
+        return MongoClient.connect(url).then(function (conn) {
+            return conn.db('Solidity').collection("contracts").findOne({ address: this.address }).then(function (result) {
+                conn.close();
+                let compiled = this.deserialize_compiled(result.contract.result);
+                let contract = new web3.eth.Contract(compiled.abi, result.address);
+                return { obj: this, contract: contract };
+            }.bind(this));
         }.bind(this));
-
     }
 
     get_transaction(contract) {
@@ -170,36 +152,33 @@ class PowerBid {
     }
 
     deploy_new() {
-        return new Promise(function(resolve, reject) {
-            this.compile_cached().then(
-                function(contract) {
-                    console.log("compiled");
+        return this.compile_cached().then(
+            function (contract) {
+                console.log("compiled");
+                var transaction = this.get_transaction(contract);
+                console.log("deploying contract");
+                return Promise.all([Promise.resolve(contract), Promise.resolve(transaction), transaction.estimateGas({ value: 1 })]);
+            }.bind(this)).then(function (args) {
+                let contract = args[0];
+                let transaction = args[1];
+                let gasValue = args[2];
+                console.log("estimated gas value for deployment " + gasValue);
 
-                    var transaction = this.get_transaction(contract);
+                console.log("sending transaction...");
 
-                    console.log("deploying contract");
-
-                    let owner = this.owner;
-
-                    console.log("sending transaction");
-
-                    transaction.estimateGas({ value: 1 }).then(function(gasValue) {
-                        console.log("estimated gas value for deployment " + gasValue);
-                        transaction.send({
-                                from: owner,
-                                gas: Math.ceil(gasValue * 1.2),
-                                value: this.params["value"]
-                            })
-                            .on('receipt', function(receipt) {
-                                console.log('Contract address is:' + receipt.contractAddress);
-                                this.persist_contract(receipt.contractAddress);
-                                var localContract = new web3.eth.Contract(contract.abi, receipt.contractAddress);
-                                resolve({ obj: this, contract: localContract });
-                            }.bind(this))
-                            .on('error', reject);
-                    }.bind(this));
-                }.bind(this), reject);
-        }.bind(this));
+                return transaction.send({
+                    from: this.owner,
+                    gas: Math.ceil(gasValue * 1.2),
+                    value: this.params["value"]
+                })
+                    .once('receipt', function (receipt) {
+                        console.log('Contract address is:' + receipt.contractAddress);
+                        this.persist_contract(receipt.contractAddress);
+                    }.bind(this))
+                    .on('error', (err) => { throw err; });
+            }.bind(this)).then(function (contract) {
+                return { obj: this, contract: contract };
+            }.bind(this));
     }
 
     deploy() {
@@ -213,10 +192,10 @@ function main(args) {
 
     // let powerBid = new PowerBid(
     //     args[0],
-    //     "0x665de6aa5aeecc1279ecf4fbd9455dce23b42a93", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
+    //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
     // );
 
-    let powerBid = new PowerBid(args[0], "0xb8f55325904A1Cbb5a4fD9FbE17ce98A5838391a");
+    let powerBid = new PowerBid(args[0], "0x5e3006f0Ce6751C54eFBf68a843dBB23465f10E8");
 
     powerBid.deploy()
         .then((result) => {
@@ -226,6 +205,8 @@ function main(args) {
 }
 
 main(process.argv.slice(2));
+
+
 
 
 /// TODO: add unit tests code

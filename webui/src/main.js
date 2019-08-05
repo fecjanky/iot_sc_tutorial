@@ -10,9 +10,9 @@ var MongoStore = require('connect-mongo')(session);
 
 var fs = require("fs");
 var Web3 = require("web3");
-let web3 = new Web3(Web3.providers.WebsocketProvider('ws://localhost:8546'));
-var abi = require("./ballot.json")
-var contractInstance;
+let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
+
+// var contractInstance;
 
 //connect to MongoDB
 mongoose.connect('mongodb://localhost/testForAuth',{ useNewUrlParser: true ,useCreateIndex: true});

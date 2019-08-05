@@ -3,5 +3,5 @@ WORK_DIR=$(dirname $0)
 GETH_VERSION=$(cat $WORK_DIR/geth_version)
 GETH_BIN=$WORK_DIR/$GETH_VERSION/geth
 mkdir -p $WORK_DIR/datadir 
-$GETH_BIN --datadir $WORK_DIR/datadir --networkid 2018 --port 30306 --nodiscover --rpc --rpcapi db,personal,eth,net,web3,debug --rpccorsdomain="*" --rpcaddr 0.0.0.0 --rpcport 8545 --ws -wsapi db,personal,eth,net,web3,debug  --wsorigins="*" --wsaddr 0.0.0.0 --wsport 8546 console
+$GETH_BIN --datadir $WORK_DIR/datadir --networkid 2018 --port 30306 --nodiscover --rpc --rpcapi db,personal,eth,net,web3,debug --rpccorsdomain="*" --rpcaddr 0.0.0.0 --rpcport 8545 --ws -wsapi db,personal,eth,net,web3,debug  --wsorigins="*" --wsaddr 0.0.0.0 --wsport 8546 console --allow-insecure-unlock 
 
