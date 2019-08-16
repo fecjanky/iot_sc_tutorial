@@ -2,12 +2,9 @@ fs = require("fs");
 solc = require('solc');
 path = require('path');
 MongoClient = require('mongodb').MongoClient;
-Web3 = require("web3");
 BSON = require('bson');
-let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
 
-var url = "mongodb://localhost:27017/Solidity";
 
 let readFile = function (fileName, encoding = 'utf8') {
     return new Promise((resolve, reject) => {
@@ -21,7 +18,9 @@ let readFile = function (fileName, encoding = 'utf8') {
 
 class PowerBid {
 
-    constructor(filename, owner, params) {
+    constructor(web3Provider, mongoUrl, filename, owner, params) {
+        this.web3Provider = web3Provider;
+        this.mongoDbUrl = mongoUrl;
         this.filename = path.resolve(filename);
         if (typeof params !== 'undefined' && params) {
             this.owner = owner;
@@ -36,7 +35,7 @@ class PowerBid {
 
 
     find_file() {
-        return MongoClient.connect(url).then(function (conn) {
+        return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             return conn.db("Solidity").collection("compiled").findOne({ filename: this.filename }).then(result => {
                 conn.close();
                 return result;
@@ -46,7 +45,7 @@ class PowerBid {
 
     compile_and_cache(data) {
         let compiled = this.compile_string(data);
-        MongoClient.connect(url).then(function (conn) {
+        MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             let compiledContract = compiled.contracts["powerbid.sol"]["PowerBid"];
             let compiledContractBSON = this.serialize_compiled(compiledContract);
             conn.db("Solidity").collection("compiled")
@@ -55,6 +54,8 @@ class PowerBid {
                     { upsert: true })
                 .then(result => conn.close());
         }.bind(this), console.log);
+
+        // TODO: factor out magic string constants
         return compiled.contracts["powerbid.sol"]["PowerBid"];
     }
 
@@ -67,7 +68,7 @@ class PowerBid {
 
     getConfig(data) {
         let source_name = path.basename(this.filename);
-        var obj = {
+        let obj = {
             language: 'Solidity',
             sources: {},
             settings: {
@@ -87,8 +88,8 @@ class PowerBid {
     }
 
     compile_string(str) {
-        var input = this.getConfig(str);
-        var output = JSON.parse(solc.compile(JSON.stringify(input)))
+        let input = this.getConfig(str);
+        let output = JSON.parse(solc.compile(JSON.stringify(input)))
         return output;
     }
 
@@ -113,7 +114,7 @@ class PowerBid {
 
     persist_contract(ethAddress) {
         console.log("persisting contract to db...");
-        Promise.all([MongoClient.connect(url), this.find_file()]).then(function (args) {
+        Promise.all([MongoClient.connect(this.mongoDbUrl), this.find_file()]).then(function (args) {
             if (args[1] === null) {
                 console.log("file must be compiled before persisting contract...");
 
@@ -129,11 +130,11 @@ class PowerBid {
     }
 
     deploy_from_db() {
-        return MongoClient.connect(url).then(function (conn) {
+        return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             return conn.db('Solidity').collection("contracts").findOne({ address: this.address }).then(function (result) {
                 conn.close();
                 let compiled = this.deserialize_compiled(result.contract.result);
-                let contract = new web3.eth.Contract(compiled.abi, result.address);
+                let contract = new this.web3Provider.eth.Contract(compiled.abi, result.address);
                 return { obj: this, contract: contract };
             }.bind(this));
         }.bind(this));
@@ -142,9 +143,9 @@ class PowerBid {
     get_transaction(contract) {
         let bytecode = '0x' + contract.evm.bytecode.object;
 
-        var powerbid = new web3.eth.Contract(contract.abi);
+        let powerbid = new this.web3Provider.eth.Contract(contract.abi);
 
-        var transaction = powerbid.deploy({
+        let transaction = powerbid.deploy({
             data: bytecode,
             arguments: [this.params.auctionPeriodSeconds, this.params.consumptionPeriodSeconds, this.params.requiredEnergy]
         });
@@ -155,7 +156,7 @@ class PowerBid {
         return this.compile_cached().then(
             function (contract) {
                 console.log("compiled");
-                var transaction = this.get_transaction(contract);
+                let transaction = this.get_transaction(contract);
                 console.log("deploying contract");
                 return Promise.all([Promise.resolve(contract), Promise.resolve(transaction), transaction.estimateGas({ value: 1 })]);
             }.bind(this)).then(function (args) {
@@ -188,23 +189,60 @@ class PowerBid {
 }
 
 
-function main(args) {
+class PowerBidCreator {
+    constructor(web3Provider, mongoDbUrl) {
+        this.web3Provider = web3Provider;
+        this.mongoDbUrl = mongoDbUrl;
+    }
 
-    // let powerBid = new PowerBid(
+    create(filename, owner, params) {
+        return new PowerBid(this.web3Provider, this.mongoDbUrl, filename, owner, params);
+    }
+
+    getDeployedContracts() {
+        return MongoClient.connect(this.mongoDbUrl).then(function (db) {
+            let collection = db.db("Solidity").collection("contracts");
+            let contracts = null;
+            return Promise.all([Promise.resolve(db), collection.find({}).toArray()]);
+        }).then((args) => {
+            args[0].close();
+            return args[1].map((obj) => obj["address"]);
+        });
+    }
+
+}
+
+
+function main(args) {
+    Web3 = require("web3");
+    let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
+    let url = "mongodb://localhost:27017/Solidity";
+    let creator = new PowerBidCreator(web3, url);
+
+    // let powerBid = creator.create(
     //     args[0],
     //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
     // );
 
-    let powerBid = new PowerBid(args[0], "0x5e3006f0Ce6751C54eFBf68a843dBB23465f10E8");
+    // let powerBid = creator.create(args[0], "0xff00bA131E714C1B2f8283F4ac10bdc3f8D91426");
 
-    powerBid.deploy()
-        .then((result) => {
-            console.log("Contract at:" + result.contract.options.address);
-            return result.contract.methods.auction_time_left().call({ from: result.obj.owner }).then((result) => console.log("Auction time_left:" + result));
-        }, console.log);
+    // powerBid.deploy()
+    //     .then((result) => {
+    //         console.log("Contract at:" + result.contract.options.address);
+    //         return result.contract.methods.auction_time_left().call({ from: result.obj.owner }).then((result) => console.log("Auction time_left:" + result));
+    //     }, console.log);
+
+    creator.getDeployedContracts().then(console.log);
 }
 
-main(process.argv.slice(2));
+module.exports.Creator = function (web3Provider, mongoDbUrl) {
+    return new PowerBidCreator(web3Provider, mongoDbUrl);
+};
+
+if (require.main === module) {
+    main(process.argv.slice(2));
+}
+
 
 
 
