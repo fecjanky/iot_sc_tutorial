@@ -16,20 +16,36 @@ let readFile = function (fileName, encoding = 'utf8') {
 };
 
 
+
+class PowerBidWrapper {
+    constructor(contract, abi) {
+        this.contract = contract;
+        abi.filter(elem => elem.type === "function").forEach(function (elem) {
+            this[elem.name] = function (params, from) {
+                //TODO: estimate gas limit
+                // TODO: propagate from
+                console.log(params)
+                return this.contract.methods[elem.name](params).call();
+            }.bind(this);
+        }.bind(this));
+    }
+}
+
 class PowerBid {
 
     constructor(web3Provider, mongoUrl, filename, owner, params) {
         this.web3Provider = web3Provider;
         this.mongoDbUrl = mongoUrl;
-        this.filename = path.resolve(filename);
         if (typeof params !== 'undefined' && params) {
             this.owner = owner;
             this.params = params;
             this.address = null;
+            this.filename = path.resolve(filename);
         } else {
             this.owner = null;
             this.params = null;
             this.address = owner;
+            this.filename = null;
         }
     }
 
@@ -47,7 +63,7 @@ class PowerBid {
         let compiled = this.compile_string(data);
         MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             let compiledContract = compiled.contracts["powerbid.sol"]["PowerBid"];
-            let compiledContractBSON = this.serialize_compiled(compiledContract);
+            let compiledContractBSON = PowerBid.serialize_compiled(compiledContract);
             conn.db("Solidity").collection("compiled")
                 .updateOne({ filename: this.filename },
                     { $set: { content: data, result: compiledContractBSON } },
@@ -59,10 +75,10 @@ class PowerBid {
         return compiled.contracts["powerbid.sol"]["PowerBid"];
     }
 
-    serialize_compiled(compiled) {
+    static serialize_compiled(compiled) {
         return BSON.serialize(compiled).toString('base64');
     }
-    deserialize_compiled(bsonData) {
+    static deserialize_compiled(bsonData) {
         return BSON.deserialize(Buffer.from(bsonData, 'base64'));
     }
 
@@ -106,7 +122,7 @@ class PowerBid {
                 return this.compile_and_cache(values[1]);
             } else {
                 console.log("file has not changed, using compiled data from db...");
-                return this.deserialize_compiled(values[0].result);
+                return PowerBid.deserialize_compiled(values[0].result);
             }
         }.bind(this));
     }
@@ -133,9 +149,9 @@ class PowerBid {
         return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             return conn.db('Solidity').collection("contracts").findOne({ address: this.address }).then(function (result) {
                 conn.close();
-                let compiled = this.deserialize_compiled(result.contract.result);
+                let compiled = PowerBid.deserialize_compiled(result.contract.result);
                 let contract = new this.web3Provider.eth.Contract(compiled.abi, result.address);
-                return { obj: this, contract: contract };
+                return new PowerBidWrapper(contract, compiled.abi);
             }.bind(this));
         }.bind(this));
     }
@@ -167,7 +183,7 @@ class PowerBid {
 
                 console.log("sending transaction...");
 
-                return transaction.send({
+                return Promise.all([transaction.send({
                     from: this.owner,
                     gas: Math.ceil(gasValue * 1.2),
                     value: this.params["value"]
@@ -176,9 +192,9 @@ class PowerBid {
                         console.log('Contract address is:' + receipt.contractAddress);
                         this.persist_contract(receipt.contractAddress);
                     }.bind(this))
-                    .on('error', (err) => { throw err; });
-            }.bind(this)).then(function (contract) {
-                return { obj: this, contract: contract };
+                    .on('error', (err) => { throw err; }), Promise.resolve(contract)]);
+            }.bind(this)).then(function (args) {
+                return new PowerBidWrapper(args[0], args[1].abi);
             }.bind(this));
     }
 
@@ -193,23 +209,40 @@ class PowerBidCreator {
     constructor(web3Provider, mongoDbUrl) {
         this.web3Provider = web3Provider;
         this.mongoDbUrl = mongoDbUrl;
+
+        this.getDeployedContracts = function (params) {
+            return MongoClient.connect(this.mongoDbUrl).then(function (db) {
+                let collection = db.db("Solidity").collection("contracts");
+                let contracts = null;
+                return Promise.all([Promise.resolve(db), collection.find({}).toArray()]);
+            }).then((args) => {
+                args[0].close();
+                return args[1].map((obj) => obj["address"]);
+            });
+        }.bind(this);
+
+        this.getAPI = function (param) {
+            return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
+                return conn.db('Solidity').collection("contracts").findOne({ address: param.address }).then(function (result) {
+                    conn.close();
+                    let compiled = PowerBid.deserialize_compiled(result.contract.result);
+                    return compiled.abi
+                }.bind(this));
+            }.bind(this));
+        }.bind(this);
+
+        this.callContract = function (param) {
+            let name = param.name;
+            let address = param.address;
+            delete param.address;
+            delete param.name;
+            return this.create(null, address).deploy().then(result => result[name](param));
+        }.bind(this);
     }
 
     create(filename, owner, params) {
         return new PowerBid(this.web3Provider, this.mongoDbUrl, filename, owner, params);
     }
-
-    getDeployedContracts() {
-        return MongoClient.connect(this.mongoDbUrl).then(function (db) {
-            let collection = db.db("Solidity").collection("contracts");
-            let contracts = null;
-            return Promise.all([Promise.resolve(db), collection.find({}).toArray()]);
-        }).then((args) => {
-            args[0].close();
-            return args[1].map((obj) => obj["address"]);
-        });
-    }
-
 }
 
 
@@ -219,20 +252,21 @@ function main(args) {
     let url = "mongodb://localhost:27017/Solidity";
     let creator = new PowerBidCreator(web3, url);
 
-    // let powerBid = creator.create(
-    //     args[0],
-    //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
-    // );
+    let powerBid = creator.create(
+        args[0],
+        "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
+    );
 
-    // let powerBid = creator.create(args[0], "0xff00bA131E714C1B2f8283F4ac10bdc3f8D91426");
+    // let powerBid = creator.create(args[0], "0x2E754662AbDC40324aF403fB1AD0016900130063");
 
-    // powerBid.deploy()
-    //     .then((result) => {
-    //         console.log("Contract at:" + result.contract.options.address);
-    //         return result.contract.methods.auction_time_left().call({ from: result.obj.owner }).then((result) => console.log("Auction time_left:" + result));
-    //     }, console.log);
+    powerBid.deploy()
+        .then((result) => {
+            console.log("Contract at:" + result.contract.options.address);
+            return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
+            // return result.contract.methods.auction_time_left().call({}).then((result) => console.log("Auction time_left:" + result));
+        }, console.log);
 
-    creator.getDeployedContracts().then(console.log);
+    // creator.getDeployedContracts().then(console.log);
 }
 
 module.exports.Creator = function (web3Provider, mongoDbUrl) {

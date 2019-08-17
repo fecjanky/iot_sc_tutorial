@@ -1,0 +1,23 @@
+
+.contracts-main {
+  display: inline-flex;
+  flex-direction: row;
+}
+
+.contracts-container {
+    display: inline-flex;
+    flex-direction: column;
+  }
+
+.contracts-api {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.api-elem {
+  display: inline-flex;
+  flex-direction: row;
+}
+
+.contracts{
+}

@@ -117,11 +117,9 @@ router.get('/scapi', function (req, res, next) {
           return next(err);
         } else {
           console.log(req.query);
-          if (req.query.call === "getDeployedContracts") {
-            SmartContractCreator.getDeployedContracts().then(contracts => {
-              sendJSON(res, contracts);
-            });
-          }
+          let toCall = req.query.call;
+          delete req.query.call;
+          SmartContractCreator[toCall](req.query).then(result => sendJSON(res, result));
         }
       }
     });
