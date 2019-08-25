@@ -11,13 +11,14 @@
 
     <h1>PowerBid smart contracts</h1>
     <!-- main -->
+    <div id="user" class="user-data"> </div>
     <div id="main" class="contracts-main">
         <div id="deployedContracts" class="contracts-container">
         </div>
         <div id="contractAPI" class="contracts-api">
             <div id="callOptions" class="contracts-options">
-                <div><input type="text" name="gas" value="" placeholder="gas"></div>
-                <div><input type="text" name="value" value="" placeholder="value"></div>
+                <input type="text" name="gas" value="" placeholder="gas">
+                <input type="text" name="value" value="" placeholder="value">
             </div>
             <div id="callConstructor" class="contracts-ctor">
                 <div><button type="button" id="createContract" onClick="createContract()">Deploy</div>

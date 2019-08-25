@@ -19,8 +19,12 @@ function getJSON(endpoint) {
     });
 }
 
-
-
+function getUserData() {
+    return getJSON('/scapi?__call=userData').then(res => {
+        document.getElementById("user").innerHTML = `User account:${res.account}`;
+        return true;
+    });
+}
 
 function getDeployedContracts() {
     return getJSON('/scapi?__call=getDeployedContracts').then(res => {
@@ -31,37 +35,41 @@ function getDeployedContracts() {
 }
 
 // TODO: factor out REST API URL encoding
-
 // TODO: implement error/logging
+// TODO: logout button
+// TODO: Display user data
 
 function getCtorAPI() {
-    // TODO: implement
     return getJSON('/scapi?__call=getCurrentCtorAPI').then(addCtorAPI);
 }
 
 function addCtorAPI(ctorAPI) {
-    console.log(ctorAPI);
-    let res =
-        ctorAPI.map(elem => {
-            console.log(elem);
-            let str = `<div><input type="text" name="${elem.name}" value="" placeholder="${elem.name}"></div>`
-            console.log(str);
-            return str;
-        }).join('');
-    console.log(res);
-    document.getElementById('callConstructorArgs').innerHTML = res;
-    console.log("lofasz");
+    document.getElementById('callConstructorArgs').innerHTML =
+        ctorAPI.map(elem => `<input type="text" name="${elem.name}" value="" placeholder="${elem.name}">`).join('');
+    return true;
 }
 
-
 function onLoad() {
-    getDeployedContracts().then(r => getCtorAPI());
+    getUserData().then(r => getDeployedContracts()).then(r => getCtorAPI());
+}
+
+function encodeToURL(obj) {
+    return Object.keys(obj).map(key => `${key}=${obj[key]}`).join('&');
 }
 
 function createContract() {
-    // TODO: implement
-}
+    args = {
+        __call: "createContract"
+    };
+    Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.value !== "") args[elem.name] = elem.value; });
+    let callArgs = { ...args, ...getCallOptions() };
 
+    getJSON('/scapi?' + encodeToURL(callArgs)).then(address => {
+        getDeployedContracts().then(r => {
+            selectContract(address);
+        });
+    });
+}
 
 function addDeployedContract(parentId, id, content) {
     document.getElementById(parentId).innerHTML += `<div id=${id} onClick="selectContract(this.id)">${content}</div>`;
@@ -84,6 +92,12 @@ function selectContract(id) {
         selectedContract = null;
         selectedAPI = null;
     }
+}
+
+function getCallOptions() {
+    let res = {};
+    Array.from(document.getElementById('callOptions').children).forEach(elem => { if (elem.value !== "") res[elem.name] = elem.value; });
+    return res;
 }
 
 function getAPI(contractAddress) {

@@ -113,6 +113,7 @@ class PowerBidWrapper {
         abi.filter(elem => elem.type === "function").forEach(function (elem) {
             this[elem.name] = function (params = {}, options = {}) {
                 let args = PowerBidWrapper.paramsToArgs(elem.inputs, params);
+                console.log(args);
                 let transaction = this.contract.methods[elem.name].apply(undefined, args);
                 if (options["gas"] === undefined) {
                     return Promise.all([
@@ -120,10 +121,18 @@ class PowerBidWrapper {
                         transaction.estimateGas({ from: options["from"], value: options["value"] })
                     ])
                         .then(function (args) {
-                            return args[0].call({ from: options["from"], value: options["value"], gas: Math.ceil(args[1] * 1.2) });
+                            let [transaction, estimatedGas] = args;
+                            let estimatedOptions = { ...options, ... { gas: Math.ceil(estimatedGas * 1.2) } };
+                            if (elem.stateMutability === "view")
+                                return transaction.call(estimatedOptions);
+                            else
+                                return transaction.send(estimatedOptions);
                         });
                 } else {
-                    return transaction.call(options);
+                    if (elem.stateMutability === "view")
+                        return transaction.call(options);
+                    else
+                        return transaction.send(options);
                 }
             }.bind(this);
         }.bind(this));
@@ -210,7 +219,7 @@ class PowerBid {
                         console.log('Contract address is:' + receipt.contractAddress);
                         this.persist_contract(receipt.contractAddress);
                     }.bind(this))
-                    .on('error', (err) => { throw err; }), Promise.resolve(contract)]);
+                    , Promise.resolve(contract)]);
             }.bind(this)).then(function (args) {
                 let [contract, compiled] = args;
                 return new PowerBidWrapper(contract, compiled.abi);
@@ -260,10 +269,14 @@ class PowerBidCreator {
             });
         }.bind(this);
 
-        this.deploy = function (user, args) {
-            // TODO: implement deploy
+        this.createContract = function (user, args) {
+            let powerBid = this.create(path.resolve('../../src/powerbid.sol'), user.ethaccount, args);
+            return powerBid.deploy().then(result => result.contract.options.address);
         }.bind(this);
 
+        this.userData = function (user, args) {
+            return Promise.resolve({ account: user.ethaccount });
+        };
 
         this.callContract = function (user, args) {
             let name = args.__name;
@@ -298,12 +311,13 @@ function main(args) {
     //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
     // );
 
-    let powerBid = creator.create(args[0], "0x8108AB0AD275ab38465aa30d0FC05BaB34b816F0");
+    let powerBid = creator.create(args[0], "0x334bBf2884674B2627E0199AEDA74f7a84B75152");
 
     powerBid.deploy()
         .then((result) => {
             console.log("Contract at:" + result.contract.options.address);
-            return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
+            result.bid({ _price: 9 }, { from: "0x65fb3AC32da1E2Bd43818Ed3A2C56EFF45958121" }).then(console.log);
+            // return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
             // return result.contract.methods.auction_time_left().call({}).then((result) => console.log("Auction time_left:" + result));
         }, console.log);
 

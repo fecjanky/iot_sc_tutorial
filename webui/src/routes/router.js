@@ -27,7 +27,7 @@ router.post('/login', function (req, res, next) {
         err.status = 401;
         return next(err);
       } else {
-        web3.eth.personal.unlockAccount(user.ethaccount, req.body.password, 600)
+        web3.eth.personal.unlockAccount(user.ethaccount, req.body.password, 60 * 60 * 24)
         req.session.userId = user._id;
         return res.redirect('/profile');
       }
@@ -65,7 +65,7 @@ router.post('/register', function (req, res, next) {
           return next(error);
         } else {
           req.session.userId = user._id;
-          web3.eth.personal.unlockAccount(addr, req.body.password)
+          web3.eth.personal.unlockAccount(addr, req.body.password, 60 * 60 * 24)
           return res.redirect('/profile');
         }
       });
