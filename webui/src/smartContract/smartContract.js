@@ -18,14 +18,28 @@ let readFile = function (fileName, encoding = 'utf8') {
 
 
 class PowerBidWrapper {
+    static paramsToArgs(inputs, params) {
+        return inputs.map((input) => params[input.name])
+    }
+
     constructor(contract, abi) {
         this.contract = contract;
         abi.filter(elem => elem.type === "function").forEach(function (elem) {
-            this[elem.name] = function (params, from) {
-                //TODO: estimate gas limit
-                // TODO: propagate from
-                console.log(params)
-                return this.contract.methods[elem.name](params).call();
+            this[elem.name] = function (params = {}, options = {}) {
+                // console.log(`called function:${elem.name} with params:${JSON.stringify(params)} and options:${JSON.stringify(options)}`);
+                let args = PowerBidWrapper.paramsToArgs(elem.inputs, params);
+                let transaction = this.contract.methods[elem.name].apply(undefined, args);
+                if (options["gas"] === undefined) {
+                    return Promise.all([
+                        Promise.resolve(transaction),
+                        transaction.estimateGas({ from: options["from"], value: options["value"] })
+                    ])
+                        .then(function (args) {
+                            return args[0].call({ from: options["from"], value: options["value"], gas: Math.ceil(args[1] * 1.2) });
+                        });
+                } else {
+                    return transaction.call(options);
+                }
             }.bind(this);
         }.bind(this));
     }
@@ -145,6 +159,7 @@ class PowerBid {
         }.bind(this));
     }
 
+
     deploy_from_db() {
         return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             return conn.db('Solidity').collection("contracts").findOne({ address: this.address }).then(function (result) {
@@ -180,7 +195,6 @@ class PowerBid {
                 let transaction = args[1];
                 let gasValue = args[2];
                 console.log("estimated gas value for deployment " + gasValue);
-
                 console.log("sending transaction...");
 
                 return Promise.all([transaction.send({
@@ -210,10 +224,9 @@ class PowerBidCreator {
         this.web3Provider = web3Provider;
         this.mongoDbUrl = mongoDbUrl;
 
-        this.getDeployedContracts = function (params) {
+        this.getDeployedContracts = function (user, args) {
             return MongoClient.connect(this.mongoDbUrl).then(function (db) {
                 let collection = db.db("Solidity").collection("contracts");
-                let contracts = null;
                 return Promise.all([Promise.resolve(db), collection.find({}).toArray()]);
             }).then((args) => {
                 args[0].close();
@@ -221,9 +234,9 @@ class PowerBidCreator {
             });
         }.bind(this);
 
-        this.getAPI = function (param) {
+        this.getAPI = function (user, args) {
             return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
-                return conn.db('Solidity').collection("contracts").findOne({ address: param.address }).then(function (result) {
+                return conn.db('Solidity').collection("contracts").findOne({ address: args.__address }).then(function (result) {
                     conn.close();
                     let compiled = PowerBid.deserialize_compiled(result.contract.result);
                     return compiled.abi
@@ -231,12 +244,20 @@ class PowerBidCreator {
             }.bind(this));
         }.bind(this);
 
-        this.callContract = function (param) {
-            let name = param.name;
-            let address = param.address;
-            delete param.address;
-            delete param.name;
-            return this.create(null, address).deploy().then(result => result[name](param));
+
+        this.callContract = function (user, args) {
+            let name = args.__name;
+            let address = args.__address;
+            delete args.__address;
+            delete args.__name;
+            let options = {
+                from: user.ethaccount,
+                gas: args.__opt_gas,
+                value: args.__opt_value
+            };
+            delete args.__opt_gas;
+            delete args.__opt_value;
+            return this.create(null, address).deploy().then(result => result[name](args, options));
         }.bind(this);
     }
 
@@ -252,12 +273,12 @@ function main(args) {
     let url = "mongodb://localhost:27017/Solidity";
     let creator = new PowerBidCreator(web3, url);
 
-    let powerBid = creator.create(
-        args[0],
-        "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
-    );
+    // let powerBid = creator.create(
+    //     args[0],
+    //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
+    // );
 
-    // let powerBid = creator.create(args[0], "0x2E754662AbDC40324aF403fB1AD0016900130063");
+    let powerBid = creator.create(args[0], "0xff00bA131E714C1B2f8283F4ac10bdc3f8D91426");
 
     powerBid.deploy()
         .then((result) => {
@@ -273,8 +294,19 @@ module.exports.Creator = function (web3Provider, mongoDbUrl) {
     return new PowerBidCreator(web3Provider, mongoDbUrl);
 };
 
+class TestClass {
+    constructor(id) {
+        this.id = id;
+    }
+    doSomething(arg1, arg2) {
+        console.log(`id=${this.id} arg1=${arg1} arg2=${arg2}`);
+    };
+};
+
 if (require.main === module) {
     main(process.argv.slice(2));
+    //let obj = new TestClass(2);
+    //TestClass.prototype["doSomething"].apply(obj, ["lol", "fuck"]);
 }
 
 

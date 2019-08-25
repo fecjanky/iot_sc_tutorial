@@ -14,6 +14,23 @@
   flex-direction: column;
 }
 
+.contracts-options {
+  display: inline-flex;
+  flex-direction: row;
+}
+
+.contracts-ctor {
+  display: inline-flex;
+  flex-direction: row;
+}
+
+.contracts-args {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+
+
 .api-elem {
   display: inline-flex;
   flex-direction: row;

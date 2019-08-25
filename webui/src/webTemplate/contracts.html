@@ -15,7 +15,18 @@
         <div id="deployedContracts" class="contracts-container">
         </div>
         <div id="contractAPI" class="contracts-api">
-
+            <div id="callOptions" class="contracts-options">
+                <div><input type="text" name="gas" value="" placeholder="gas"></div>
+                <div><input type="text" name="value" value="" placeholder="value"></div>
+            </div>
+            <div id="callConstructor" class="contracts-ctor">
+                <div><button type="button" id="createContract" onClick="createContract()" onload="getCtorAPI()">Deploy</div>
+                <div id="callConstructorArgs" class="contracts-ctorargs"></div>
+            </div>
+            <div id="callAPI" class="contracts-args"></div>
+        </div>
+        <div id="logwindow" class="logwindow">
+            <div id="log" class="log"></div>
         </div>
 
     </div>

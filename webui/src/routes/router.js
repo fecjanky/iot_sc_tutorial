@@ -110,16 +110,21 @@ router.get('/scapi', function (req, res, next) {
           let err = new Error('Not authorized! Go back!');
           err.status = 400;
           return next(err);
-        } else if (req.query === undefined || req.query.call === undefined) {
+        } else if (req.query === undefined || req.query.__call === undefined) {
           console.log(req.query);
           let err = new Error('Missing parameters!');
           err.status = 400;
           return next(err);
         } else {
           console.log(req.query);
-          let toCall = req.query.call;
-          delete req.query.call;
-          SmartContractCreator[toCall](req.query).then(result => sendJSON(res, result));
+          let toCall = req.query.__call;
+          delete req.query.__call;
+          SmartContractCreator[toCall](user, req.query).then((result) => {
+            sendJSON(res, { result: result });
+          }, error => {
+            console.log(error);
+            sendJSON(res, { error: error.message });
+          });
         }
       }
     });

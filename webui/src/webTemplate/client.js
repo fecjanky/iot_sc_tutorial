@@ -6,7 +6,10 @@ function getJSON(endpoint) {
             if (xmlhttp.readyState == 4) {
                 if (xmlhttp.status == 200) {
                     let obj = JSON.parse(xmlhttp.responseText);
-                    resolve(obj);
+                    if (obj.result !== undefined)
+                        resolve(obj.result);
+                    else
+                        reject(obj.error)
                 } else {
                     reject(new Error("Failed to get response from endpoint:" + endpoint + ", http status =" + xmlhttp.status));
                 }
@@ -18,12 +21,25 @@ function getJSON(endpoint) {
 
 
 function getDeployedContracts() {
-    getJSON('/scapi?call=getDeployedContracts').then(res => {
-        res.map((address) => addDiv('deployedContracts', address, address));
+    getJSON('/scapi?__call=getDeployedContracts').then(res => {
+        res.map((address) => addDeployedContract('deployedContracts', address, address));
     });
 }
 
-function addDiv(parentId, id, content) {
+// TODO: factor out REST API URL encoding
+
+// TODO: implement error/logging
+
+function getCtorAPI() {
+    // TODO: implement
+}
+
+function createContract() {
+    // TODO: implement
+}
+
+
+function addDeployedContract(parentId, id, content) {
     document.getElementById(parentId).innerHTML += `<div id=${id} onClick="selectContract(this.id)">${content}</div>`;
 }
 
@@ -31,6 +47,7 @@ var selectedContract = null
 var selectedAPI = null
 
 function selectContract(id) {
+    // TODO change css style on-click instead of manually coloring
     if (selectedContract !== null) {
         selectedContract.style.backgroundColor = "initial";
     }
@@ -46,8 +63,7 @@ function selectContract(id) {
 }
 
 function getAPI(contractAddress) {
-    getJSON(`/scapi?call=getAPI&address=${contractAddress}`)
-        // .then(result => document.getElementById('contractAPI').innerHTML = JSON.stringify(result, null, 2));
+    getJSON(`/scapi?__call=getAPI&__address=${contractAddress}`)
         .then(result => renderAPI(contractAddress, result));
 }
 
@@ -64,25 +80,38 @@ class APIElem {
         this.outputs = abiDesrciption.outputs;
 
         this.toURLCall = function (args) {
-            return `/scapi?call=callContract&name=${this.name}&address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args.elem.name}`);
+            console.log(args);
+            return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
         }.bind(this);
 
         this.callFunction = function (element) {
-            // TODO: get args from elemenents
-            getJSON(this.toURLCall({})).then(console.log);
-            //return getJSON(this.toURLCall(args));
-            //TODO: display results on return
+            getJSON(this.toURLCall(this.getAllInputs())).then(function (result) {
+                // TODO:handle array return type
+                this.getAllOutputs().map(output => output.value = result);
+            }.bind(this));
         }.bind(this);
 
         this.toHTML = function () {
-            let inputs = this.inputs.map(elem => `<div><input type="text" name="${elem.name}" value=""></div>`).join('');
-            let outputs = this.outputs.map(elem => `<div><input type="text" name="${elem.name}" value=""></div>`).join('');
+            let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
+            let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
             return `<div class="api-elem" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button>:</div>` + inputs + "<div> => </div>" + outputs + "</div>";
         }.bind(this);
+
+        this.placeholder = function () {
+            return document.getElementById(this.name);
+        }.bind(this);
+    }
+    getAllInputs() {
+        let res = {};
+        this.inputs.forEach(elem => { res[elem.name] = document.getElementById(`${this.name}_in_${elem.name}`).value });
+        return res;
+    }
+    getAllOutputs() {
+        return this.outputs.map(elem => document.getElementById(`${this.name}_out_${elem.name}`));
     }
 }
 
 function renderAPI(address, api) {
     selectedAPI = api.filter(elem => elem.type === "function").map(elem => new APIElem(address, elem));
-    document.getElementById('contractAPI').innerHTML = selectedAPI.map(elem => elem.toHTML()).join('');
+    document.getElementById('callAPI').innerHTML = selectedAPI.map(elem => elem.toHTML()).join('');
 }
