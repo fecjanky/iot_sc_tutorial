@@ -15,7 +15,7 @@ function sendJSON(response, obj) {
 // GET route for reading data
 router.get('/', function (req, res, next) {
   console.log("auth page")
-  return res.sendFile(path.join(__dirname + '/webTemplate/index.html'));
+  return res.sendFile(path.join(__dirname, '..', 'webTemplate', 'index.html'));
 });
 
 
@@ -93,7 +93,7 @@ router.get('/profile', function (req, res, next) {
           err.status = 400;
           return next(err);
         } else {
-          return res.sendFile(path.join(__dirname, '../webTemplate/contracts.html'));
+          return res.sendFile(path.join(__dirname, '..', 'webTemplate', 'contracts.html'));
         }
       }
     });

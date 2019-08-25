@@ -261,7 +261,7 @@ class PowerBidCreator {
 
         this.getCurrentCtorAPI = function (user, args) {
             // TODO: factor out filename of contract
-            let filename = path.resolve('../../src/powerbid.sol');
+            let filename = this.getFilePath();
             let solc = new SolcWrapper(this.mongoDbUrl, filename);
             return solc.compile_cached().then(compiled => {
                 let ctor = compiled.abi.filter(elem => elem.type === "constructor")[0];
@@ -270,7 +270,7 @@ class PowerBidCreator {
         }.bind(this);
 
         this.createContract = function (user, args) {
-            let powerBid = this.create(path.resolve('../../src/powerbid.sol'), user.ethaccount, args);
+            let powerBid = this.create(this.getFilePath(), user.ethaccount, args);
             return powerBid.deploy().then(result => result.contract.options.address);
         }.bind(this);
 
@@ -292,6 +292,10 @@ class PowerBidCreator {
             delete args.__opt_value;
             return this.create(null, address).deploy().then(result => result[name](args, options));
         }.bind(this);
+    }
+
+    getFilePath() {
+        return path.join(__dirname, "..", "..", "..", "src", "powerbid.sol");
     }
 
     create(filename, owner, params) {

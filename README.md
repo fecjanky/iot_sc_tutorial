@@ -15,3 +15,6 @@ pushd webui && npm install && popd
 ./webui/scripts/start_db.sh
 ./node webui/main.js
 
+
+* TODO
+- solve prefill accounts
