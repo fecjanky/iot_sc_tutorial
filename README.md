@@ -1,20 +1,20 @@
-* Prerequisites
+= Prerequisites
 
 - node (Node.Js)
 - npm (Node pacakge manager)
 - mongodb 
 
-* Installation steps
+= Installation steps
 
 pushd webui && npm install && popd
 ./install_geth && ./init_geth 
 
-* Starting everything
+= Starting everything
 
-./start_geth
-./webui/scripts/start_db.sh
-./node webui/main.js
+- ./start_geth (in the geth console also start mining by 'miner.start(1)')
+- ./webui/scripts/start_db.sh (might have to kill the default mongod until the script is updated the use a different port)
+- ./node webui/main.js
 
 
-* TODO
+= TODO
 - solve prefill accounts
