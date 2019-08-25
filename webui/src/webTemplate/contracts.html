@@ -5,7 +5,7 @@
     <title>PowerBid smart contracts</title>
 </head>
 
-<body onload="getDeployedContracts()">
+<body onload="onLoad()">
     <script src="client.js">            </script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
@@ -20,7 +20,7 @@
                 <div><input type="text" name="value" value="" placeholder="value"></div>
             </div>
             <div id="callConstructor" class="contracts-ctor">
-                <div><button type="button" id="createContract" onClick="createContract()" onload="getCtorAPI()">Deploy</div>
+                <div><button type="button" id="createContract" onClick="createContract()">Deploy</div>
                 <div id="callConstructorArgs" class="contracts-ctorargs"></div>
             </div>
             <div id="callAPI" class="contracts-args"></div>

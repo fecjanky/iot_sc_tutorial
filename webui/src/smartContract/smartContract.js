@@ -244,14 +244,20 @@ class PowerBidCreator {
             return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
                 return conn.db('Solidity').collection("contracts").findOne({ address: args.__address }).then(function (result) {
                     conn.close();
-                    let compiled = PowerBid.deserialize_compiled(result.contract.result);
+                    let compiled = SolcWrapper.deserialize_compiled(result.contract.result);
                     return compiled.abi
                 }.bind(this));
             }.bind(this));
         }.bind(this);
 
         this.getCurrentCtorAPI = function (user, args) {
-            // TODO: return with CTOR API
+            // TODO: factor out filename of contract
+            let filename = path.resolve('../../src/powerbid.sol');
+            let solc = new SolcWrapper(this.mongoDbUrl, filename);
+            return solc.compile_cached().then(compiled => {
+                let ctor = compiled.abi.filter(elem => elem.type === "constructor")[0];
+                return ctor.inputs;
+            });
         }.bind(this);
 
         this.deploy = function (user, args) {

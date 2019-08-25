@@ -14,6 +14,11 @@
   flex-direction: column;
 }
 
+.contracts-args {
+  display: inline-flex;
+  flex-direction: column;
+}
+
 .contracts-options {
   display: inline-flex;
   flex-direction: row;
@@ -24,9 +29,9 @@
   flex-direction: row;
 }
 
-.contracts-args {
+.contracts-ctorargs {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 
 

@@ -20,9 +20,13 @@ function getJSON(endpoint) {
 }
 
 
+
+
 function getDeployedContracts() {
-    getJSON('/scapi?__call=getDeployedContracts').then(res => {
+    return getJSON('/scapi?__call=getDeployedContracts').then(res => {
+        document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
+        return true;
     });
 }
 
@@ -32,6 +36,26 @@ function getDeployedContracts() {
 
 function getCtorAPI() {
     // TODO: implement
+    return getJSON('/scapi?__call=getCurrentCtorAPI').then(addCtorAPI);
+}
+
+function addCtorAPI(ctorAPI) {
+    console.log(ctorAPI);
+    let res =
+        ctorAPI.map(elem => {
+            console.log(elem);
+            let str = `<div><input type="text" name="${elem.name}" value="" placeholder="${elem.name}"></div>`
+            console.log(str);
+            return str;
+        }).join('');
+    console.log(res);
+    document.getElementById('callConstructorArgs').innerHTML = res;
+    console.log("lofasz");
+}
+
+
+function onLoad() {
+    getDeployedContracts().then(r => getCtorAPI());
 }
 
 function createContract() {
