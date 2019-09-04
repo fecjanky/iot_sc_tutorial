@@ -1,143 +1,7 @@
-fs = require("fs");
-solc = require('solc');
-path = require('path');
-MongoClient = require('mongodb').MongoClient;
-BSON = require('bson');
-
-
-
-let readFile = function (fileName, encoding = 'utf8') {
-    return new Promise((resolve, reject) => {
-        fs.readFile(fileName, encoding, (err, data) => {
-            if (err) reject(err);
-            else resolve(data);
-        });
-    });
-};
-
-
-class SolcWrapper {
-    constructor(mongoDbUrl, fileName) {
-        this.mongoDbUrl = mongoDbUrl;
-        this.filename = fileName;
-    }
-
-    compile_string(str) {
-        let input = this.getConfig(str);
-        let output = JSON.parse(solc.compile(JSON.stringify(input)))
-        return output;
-    }
-
-    compile() {
-        return new Promise(function (resolve, reject) {
-            readFile(this.filename).then(data => resolve(this.compile_string(data)), reject);
-        }.bind(this));
-    }
-
-    compile_cached() {
-        return Promise.all([this.find_file(), readFile(this.filename)]).then(function (values) {
-            let [file_db, file_content] = values;
-            if (file_db === null || file_db.content !== file_content) {
-                console.log("file has changed or not compiled yet, recompiling source...");
-                return this.compile_and_cache(file_content);
-            } else {
-                console.log("file has not changed, using compiled data from db...");
-                return SolcWrapper.deserialize_compiled(file_db.result);
-            }
-        }.bind(this));
-    }
-
-    find_file() {
-        return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
-            return conn.db("Solidity").collection("compiled").findOne({ filename: this.filename }).then(result => {
-                conn.close();
-                return result;
-            });
-        }.bind(this));
-    }
-
-    compile_and_cache(data) {
-        let compiled = this.compile_string(data);
-        MongoClient.connect(this.mongoDbUrl).then(function (conn) {
-            let compiledContract = compiled.contracts["powerbid.sol"]["PowerBid"];
-            let compiledContractBSON = SolcWrapper.serialize_compiled(compiledContract);
-            conn.db("Solidity").collection("compiled")
-                .updateOne({ filename: this.filename },
-                    { $set: { content: data, result: compiledContractBSON } },
-                    { upsert: true })
-                .then(result => conn.close());
-        }.bind(this), console.log);
-
-        // TODO: factor out magic string constants
-        return compiled.contracts["powerbid.sol"]["PowerBid"];
-    }
-
-    static serialize_compiled(compiled) {
-        return BSON.serialize(compiled).toString('base64');
-    }
-
-    static deserialize_compiled(bsonData) {
-        return BSON.deserialize(Buffer.from(bsonData, 'base64'));
-    }
-
-    getConfig(data) {
-        let source_name = path.basename(this.filename);
-        let obj = {
-            language: 'Solidity',
-            sources: {},
-            settings: {
-                outputSelection: {
-                    '*': {
-                        '*': ['*']
-                    }
-                }
-            }
-        };
-
-        obj["sources"][source_name] = {
-            content: data
-        };
-
-        return obj;
-    }
-}
-
-
-class PowerBidWrapper {
-    static paramsToArgs(inputs, params) {
-        return inputs.map((input) => params[input.name])
-    }
-
-    constructor(contract, abi) {
-        this.contract = contract;
-        abi.filter(elem => elem.type === "function").forEach(function (elem) {
-            this[elem.name] = function (params = {}, options = {}) {
-                let args = PowerBidWrapper.paramsToArgs(elem.inputs, params);
-                console.log(args);
-                let transaction = this.contract.methods[elem.name].apply(undefined, args);
-                if (options["gas"] === undefined) {
-                    return Promise.all([
-                        Promise.resolve(transaction),
-                        transaction.estimateGas({ from: options["from"], value: options["value"] })
-                    ])
-                        .then(function (args) {
-                            let [transaction, estimatedGas] = args;
-                            let estimatedOptions = { ...options, ... { gas: Math.ceil(estimatedGas * 1.2) } };
-                            if (elem.stateMutability === "view")
-                                return transaction.call(estimatedOptions);
-                            else
-                                return transaction.send(estimatedOptions);
-                        });
-                } else {
-                    if (elem.stateMutability === "view")
-                        return transaction.call(options);
-                    else
-                        return transaction.send(options);
-                }
-            }.bind(this);
-        }.bind(this));
-    }
-}
+let path = require('path');
+let MongoClient = require('mongodb').MongoClient;
+let SolcWrapper = require('./solcWrapper');
+let ContractWrapper = require('./contractWrapper');
 
 class PowerBid {
 
@@ -148,7 +12,7 @@ class PowerBid {
             this.owner = owner;
             this.params = params;
             this.address = null;
-            this.solc = new SolcWrapper(this.mongoDbUrl, path.resolve(filename));
+            this.solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, path.resolve(filename));
         } else {
             this.owner = null;
             this.params = null;
@@ -181,7 +45,7 @@ class PowerBid {
                 conn.close();
                 let compiled = SolcWrapper.deserialize_compiled(result.contract.result);
                 let contract = new this.web3Provider.eth.Contract(compiled.abi, result.address);
-                return new PowerBidWrapper(contract, compiled.abi);
+                return ContractWrapper.ContractWrapper(contract, compiled.abi);
             }.bind(this));
         }.bind(this));
     }
@@ -222,7 +86,7 @@ class PowerBid {
                     , Promise.resolve(contract)]);
             }.bind(this)).then(function (args) {
                 let [contract, compiled] = args;
-                return new PowerBidWrapper(contract, compiled.abi);
+                return ContractWrapper.ContractWrapper(contract, compiled.abi);
             }.bind(this));
     }
 
@@ -262,7 +126,7 @@ class PowerBidCreator {
         this.getCurrentCtorAPI = function (user, args) {
             // TODO: factor out filename of contract
             let filename = this.getFilePath();
-            let solc = new SolcWrapper(this.mongoDbUrl, filename);
+            let solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, filename);
             return solc.compile_cached().then(compiled => {
                 let ctor = compiled.abi.filter(elem => elem.type === "constructor")[0];
                 return ctor.inputs;
@@ -312,16 +176,16 @@ function main(args) {
 
     // let powerBid = creator.create(
     //     args[0],
-    //     "0x0bbcab1846baf036cf75b1250c7563ee9e8dce77", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
+    //     "0xa87bccbc9b49178f51f33fbc2f8ae352631e670d", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
     // );
 
-    let powerBid = creator.create(args[0], "0x334bBf2884674B2627E0199AEDA74f7a84B75152");
+    let powerBid = creator.create(args[0], "0xB649E7926abD981E69719d42cfCA0C45A715ad32");
 
     powerBid.deploy()
         .then((result) => {
             console.log("Contract at:" + result.contract.options.address);
-            result.bid({ _price: 9 }, { from: "0x65fb3AC32da1E2Bd43818Ed3A2C56EFF45958121" }).then(console.log);
-            // return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
+            // result.bid({ _price: 9 }, { from: "0x65fb3AC32da1E2Bd43818Ed3A2C56EFF45958121" }).then(console.log);
+            return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
             // return result.contract.methods.auction_time_left().call({}).then((result) => console.log("Auction time_left:" + result));
         }, console.log);
 
