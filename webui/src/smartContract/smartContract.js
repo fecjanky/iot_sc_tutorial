@@ -1,11 +1,12 @@
 let path = require('path');
 let MongoClient = require('mongodb').MongoClient;
 let SolcWrapper = require('./solcWrapper');
-let ContractWrapper = require('./contractWrapper');
+let ContractWrapper = require('./contractWrapper').ContractWrapper;
+let User = require('../model/user');
 
 class PowerBid {
 
-    constructor(web3Provider, mongoUrl, filename, owner, params) {
+    constructor(web3Provider, mongoUrl, filename, owner, params, user) {
         this.web3Provider = web3Provider;
         this.mongoDbUrl = mongoUrl;
         if (typeof params !== 'undefined' && params) {
@@ -13,6 +14,7 @@ class PowerBid {
             this.params = params;
             this.address = null;
             this.solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, path.resolve(filename));
+            this.user = user;
         } else {
             this.owner = null;
             this.params = null;
@@ -45,7 +47,7 @@ class PowerBid {
                 conn.close();
                 let compiled = SolcWrapper.deserialize_compiled(result.contract.result);
                 let contract = new this.web3Provider.eth.Contract(compiled.abi, result.address);
-                return ContractWrapper.ContractWrapper(contract, compiled.abi);
+                return ContractWrapper(this.web3Provider)(contract, compiled.abi);
             }.bind(this));
         }.bind(this));
     }
@@ -63,30 +65,39 @@ class PowerBid {
     }
 
     deploy_new() {
-        return this.solc.compile_cached().then(
-            function (contract) {
-                console.log("compiled");
-                let transaction = this.get_transaction(contract);
-                console.log("deploying contract");
-                return Promise.all([Promise.resolve(contract), Promise.resolve(transaction), transaction.estimateGas({ value: 1 })]);
-            }.bind(this)).then(function (args) {
-                let [contract, transaction, gasValue] = args;
+        return this.solc.compile_cached()
+            .then(
+                function (contract) {
+                    console.log("compiled");
+                    let transaction = this.get_transaction(contract);
+                    console.log("deploying contract");
+                    return Promise.all([Promise.resolve(contract), Promise.resolve(transaction), transaction.estimateGas({ value: 1 }), this.web3Provider.eth.getGasPrice(), this.web3Provider.eth.getTransactionCount(this.owner, "pending")]);
+                }.bind(this))
+            .then(function (args) {
+                let [contract, transaction, gasValue, gasPrice, txcount] = args;
                 console.log("estimated gas value for deployment " + gasValue);
-                console.log("sending transaction...");
-
-                return Promise.all([transaction.send({
+                console.log("signing transaction...");
+                let eth_transaction = {
+                    nonce: txcount,
                     from: this.owner,
                     gas: Math.ceil(gasValue * 1.2),
-                    value: this.params["value"]
-                })
-                    .once('receipt', function (receipt) {
-                        console.log('Contract address is:' + receipt.contractAddress);
-                        this.persist_contract(receipt.contractAddress);
-                    }.bind(this))
-                    , Promise.resolve(contract)]);
-            }.bind(this)).then(function (args) {
-                let [contract, compiled] = args;
-                return ContractWrapper.ContractWrapper(contract, compiled.abi);
+                    value: this.params["value"],
+                    data: transaction.encodeABI(),
+                    gasPrice: gasPrice
+                };
+                return Promise.all([this.web3Provider.eth.personal.signTransaction(eth_transaction, User.password(this.user)), Promise.resolve(contract)]);
+            }.bind(this))
+            .then(function (args) {
+                let [signedTransaction, contract] = args;
+                console.log("sending signed transaction...");
+                return Promise.all([this.web3Provider.eth.sendSignedTransaction(signedTransaction.raw), Promise.resolve(contract)]);
+            }.bind(this))
+            .then(function (args) {
+                let [receipt, compiled] = args;
+                console.log(receipt);
+                this.persist_contract(receipt.contractAddress);
+                let contract = new this.web3Provider.eth.Contract(compiled.abi, receipt.contractAddress);
+                return ContractWrapper(this.web3Provider)(contract, compiled.abi);
             }.bind(this));
     }
 
@@ -154,7 +165,7 @@ class PowerBidCreator {
             };
             delete args.__opt_gas;
             delete args.__opt_value;
-            return this.create(null, address).deploy().then(result => result[name](args, options));
+            return this.create(null, address).deploy().then(result => result[name](args, options, user));
         }.bind(this);
     }
 
@@ -162,24 +173,27 @@ class PowerBidCreator {
         return path.join(__dirname, "..", "..", "..", "src", "powerbid.sol");
     }
 
-    create(filename, owner, params) {
-        return new PowerBid(this.web3Provider, this.mongoDbUrl, filename, owner, params);
+    create(filename, owner, params, user) {
+        return new PowerBid(this.web3Provider, this.mongoDbUrl, filename, owner, params, user);
     }
 }
 
 
 function main(args) {
-    Web3 = require("web3");
+    let Web3 = require("web3");
+    let CryptoJS = require("crypto-js");
     let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
     let url = "mongodb://localhost:27017/Solidity";
     let creator = new PowerBidCreator(web3, url);
+    let testUser = { password: "deadbeef", password2: CryptoJS.AES.encrypt("aa", "deadbeef").toString() }
 
     // let powerBid = creator.create(
     //     args[0],
     //     "0xa87bccbc9b49178f51f33fbc2f8ae352631e670d", { auctionPeriodSeconds: 600, consumptionPeriodSeconds: 600, requiredEnergy: 100, value: 20 },
+    //     testUser
     // );
 
-    let powerBid = creator.create(args[0], "0xB649E7926abD981E69719d42cfCA0C45A715ad32");
+    let powerBid = creator.create(args[0], "0x2188d470eCF2A293C8644f0418Fc334fFfFC8328");
 
     powerBid.deploy()
         .then((result) => {

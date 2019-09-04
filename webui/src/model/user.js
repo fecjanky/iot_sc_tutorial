@@ -1,7 +1,8 @@
-var mongoose = require('mongoose');
-var bcrypt = require('bcrypt');
+let mongoose = require('mongoose');
+let bcrypt = require('bcrypt');
+let CryptoJS = require("crypto-js");
 
-var UserSchema = new mongoose.Schema({
+let UserSchema = new mongoose.Schema({
   username: {
     type: String,
     unique: true,
@@ -12,7 +13,10 @@ var UserSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  ethaccount:String
+  password2: {
+    type: String
+  },
+  ethaccount: String
 });
 
 //authenticate input against database
@@ -43,11 +47,17 @@ UserSchema.pre('save', function (next) {
     if (err) {
       return next(err);
     }
+    user.password2 = CryptoJS.AES.encrypt(user.password.toString(), hash);
     user.password = hash;
     next();
-  })
+  });
 });
 
 
 var User = mongoose.model('User', UserSchema);
-module.exports = User;
+module.exports.User = User;
+
+// TODO: investigate how to nullify string after use
+module.exports.password = function (user) {
+  return CryptoJS.AES.decrypt(user.password2, user.password).toString(CryptoJS.enc.Utf8);
+};

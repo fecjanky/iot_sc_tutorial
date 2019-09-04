@@ -1,8 +1,9 @@
 let express = require('express');
 let router = express.Router();
-let User = require('../model/user');
+let User = require('../model/user').User;
 let path = require('path');
 let Web3 = require("web3");
+// TODO: use HTTPs provider
 let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
 let SmartContractCreator = require('../smartContract/smartContract').Creator(web3, "mongodb://localhost:27017/Solidity");
@@ -27,7 +28,6 @@ router.post('/login', function (req, res, next) {
         err.status = 401;
         return next(err);
       } else {
-        web3.eth.personal.unlockAccount(user.ethaccount, req.body.password, 60 * 60 * 24)
         req.session.userId = user._id;
         return res.redirect('/profile');
       }
@@ -48,12 +48,12 @@ router.post('/register', function (req, res, next) {
     res.send("passwords dont match");
     return next(err);
   }
-
+  // TODO: check if user already exists
   if (req.body.username &&
     req.body.password &&
     req.body.passwordConf) {
 
-    web3.eth.personal.newAccount(req.body.password).then(function (addr) {
+    web3.eth.accounts.create.newAccount(req.body.password).then(function (addr) {
       let userData = {
         username: req.body.username,
         password: req.body.password,
@@ -65,7 +65,6 @@ router.post('/register', function (req, res, next) {
           return next(error);
         } else {
           req.session.userId = user._id;
-          web3.eth.personal.unlockAccount(addr, req.body.password, 60 * 60 * 24)
           return res.redirect('/profile');
         }
       });
