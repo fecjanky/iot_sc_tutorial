@@ -1,9 +1,37 @@
 #!/bin/sh
-WORK_DIR=$(dirname $0)
-GETH_VERSION=$(cat $WORK_DIR/geth_version)
-GETH_BIN=$WORK_DIR/$GETH_VERSION/geth
+set -e
+WORK_DIR="$(dirname $0)"
+GETH_VERSION="$(cat $WORK_DIR/geth_version)"
+GETH_BIN="$WORK_DIR/$GETH_VERSION/geth"
 
-rm -rf $WORK_DIR/datadir
+rm -rf "$WORK_DIR/datadir" "$WORK_DIR/datadir_tmp"
+
+"$GETH_BIN" --datadir "$WORK_DIR/datadir_tmp" account new
+GENESIS_ACCOUNT="$($GETH_BIN --datadir datadir_tmp/ account list 2>/dev/null | sed -r 's/.*\{([a-zA-Z0-9]+)\}.*keystore:\/\/(.*)/\1 \2/g')"
+
+ACCOUNT="$(echo $GENESIS_ACCOUNT | cut -d' ' -f1)"
+KEYFILE="$(echo $GENESIS_ACCOUNT | cut -d' ' -f2)"
+
+mkdir -p "$WORK_DIR/datadir/keystore"
+
+echo $KEYFILE
+
+mv "$KEYFILE" "$WORK_DIR/datadir/keystore/"
+
+rm -rf "$WORK_DIR/datadir_tmp"
+
+PREFILL_BALANCE='"888888888888888888888888"'
+
+PREFILL="\"$ACCOUNT\" : \{\"balance\": $PREFILL_BALANCE\}"
+
+REPLACEMENT="s/ALLOCATION_ENTRY/$PREFILL/g"
+
+echo $REPLACEMENT > "$WORK_DIR/replacement.script"
+
+cat "$WORK_DIR/init.json.template" | sed -f "$WORK_DIR/replacement.script" > "$WORK_DIR/init.json"
+
+rm -f "$WORK_DIR/replacement.script"
+
 $GETH_BIN --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
-$GETH_BIN --datadir $WORK_DIR/datadir account new
+
 

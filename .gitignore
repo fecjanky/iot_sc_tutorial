@@ -1,3 +1,6 @@
 datadir/
 geth-linux-*/
 geth-linux-*.tar.gz*
+init.json
+.vscode/
+

@@ -10,7 +10,7 @@
     "constantinopleBlock": 5
   },
 
-  "alloc"      : {},
+  "alloc"      : {ALLOCATION_ENTRY},
   "coinbase"   : "0x0000000000000000000000000000000000000000",
   "difficulty" : "0x1",
   "extraData"  : "",
