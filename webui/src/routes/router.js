@@ -4,9 +4,11 @@ let User = require('../model/user').User;
 let path = require('path');
 let Web3 = require("web3");
 // TODO: use HTTPs provider
+// TODO: rectify express routes
+
 let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
-let SmartContractCreator = require('../smartContract/smartContract').Creator(web3, "mongodb://localhost:27017/Solidity");
+let SmartContractCreator = require('../smartContract/smartContract').Creator(web3, "mongodb://localhost:27018/Solidity");
 
 function sendJSON(response, obj) {
   response.writeHead(200, { "Content-Type": "application/json" });
@@ -29,7 +31,7 @@ router.post('/login', function (req, res, next) {
         return next(err);
       } else {
         req.session.userId = user._id;
-        return res.redirect('/profile');
+        return res.redirect('/contracts');
       }
     });
   } else {
@@ -53,7 +55,7 @@ router.post('/register', function (req, res, next) {
     req.body.password &&
     req.body.passwordConf) {
 
-    web3.eth.accounts.create.newAccount(req.body.password).then(function (addr) {
+    web3.eth.personal.newAccount(req.body.password).then(function (addr) {
       let userData = {
         username: req.body.username,
         password: req.body.password,
@@ -65,11 +67,11 @@ router.post('/register', function (req, res, next) {
           return next(error);
         } else {
           req.session.userId = user._id;
-          return res.redirect('/profile');
+          return res.redirect('/contracts');
         }
       });
     }).catch(function (error) {
-      let err = new Error('Web3Api error' + error);
+      let err = new Error('Web3Api error:' + error);
       err.status = 400;
       return next(err);
     });
@@ -81,7 +83,7 @@ router.post('/register', function (req, res, next) {
 })
 
 // GET route after registering
-router.get('/profile', function (req, res, next) {
+router.get('/contracts', function (req, res, next) {
   User.findById(req.session.userId)
     .exec(function (error, user) {
       if (error) {

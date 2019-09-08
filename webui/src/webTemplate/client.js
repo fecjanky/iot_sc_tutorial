@@ -91,6 +91,7 @@ function selectContract(id) {
     } else {
         selectedContract = null;
         selectedAPI = null;
+        clearAPI();
     }
 }
 
@@ -103,6 +104,10 @@ function getCallOptions() {
 function getAPI(contractAddress) {
     getJSON(`/scapi?__call=getAPI&__address=${contractAddress}`)
         .then(result => renderAPI(contractAddress, result));
+}
+
+function clearAPI() {
+    document.getElementById('callAPI').innerHTML = "";
 }
 
 function callAPIFunction(id) {

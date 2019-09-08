@@ -116,7 +116,7 @@ class PowerBidCreator {
         }.bind(this);
 
         this.createContract = function (user, args) {
-            let powerBid = this.create(this.getFilePath(), user.ethaccount, args);
+            let powerBid = this.create(this.getFilePath(), user.ethaccount, args, user);
             return powerBid.deploy().then(result => result.contract.options.address);
         }.bind(this);
 
