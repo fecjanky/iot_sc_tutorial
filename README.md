@@ -29,9 +29,13 @@
 To build the docker image, the password for the prefill account has to be supplied as the `build-arg`, example:
 - `docker build -t iot_sc_tutorial:v0.7 --build-arg GENESIS_PASSWORD=abcd .` will create the docker image `iot_sc_tutorial:v0.7`
 
-- To run the image use `docker run iot_sc_tutorial:v0.7 -e "MINER_THREADS=2"` will start the image, but overriding the default for `MINER_THREADS` environment variable to 2 - the latter env override is optional
+- Alternatively the latest image can be pulled by `docker pull fecjanky/iot_sc_tutorial:latest`
+
+- To run the image use `docker run -p 3000:3000 iot_sc_tutorial:v0.7 -e "MINER_THREADS=2"` will start the image binding port 3000 to the container, but overriding the default for `MINER_THREADS` environment variable to 2 - the latter env override is optional
 
 - Use `docker ps` , `docker stop` & `docker start` to manipulate the state of the docker container
+
+- Attach to a running container with `docker exec <container ID> bash` then use `./start_geth attach` to attach to the geth node for administration
 
 # TODOs
 - create a list of accounts
