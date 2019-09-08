@@ -57,7 +57,8 @@ UserSchema.pre('save', function (next) {
 var User = mongoose.model('User', UserSchema);
 module.exports.User = User;
 
-// TODO: investigate how to nullify string after use
+// TODO: investigate how to increase security of stroring the password
+// TODO: add access control and encryption to MongoDB
 module.exports.password = function (user) {
   return CryptoJS.AES.decrypt(user.password2, user.password).toString(CryptoJS.enc.Utf8);
 };
