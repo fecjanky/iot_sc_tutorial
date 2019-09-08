@@ -2,11 +2,15 @@
   "name": "webui",
   "version": "1.0.0",
   "description": "demo ui for smart contracts",
-  "main": "index.js",
+  "main": "src/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "github.com/fecjanky/iot_sc_tutorial.git"
+  },
+  "author": "Ferenc Nandor Janky",
   "license": "ISC",
   "dependencies": {
     "abi-decoder": "^2.0.1",

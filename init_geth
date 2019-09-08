@@ -6,8 +6,16 @@ GETH_BIN="$WORK_DIR/$GETH_VERSION/geth"
 
 rm -rf "$WORK_DIR/datadir" "$WORK_DIR/datadir_tmp"
 
-"$GETH_BIN" --datadir "$WORK_DIR/datadir_tmp" account new
-GENESIS_ACCOUNT="$($GETH_BIN --datadir datadir_tmp/ account list 2>/dev/null | sed -r 's/.*\{([a-zA-Z0-9]+)\}.*keystore:\/\/(.*)/\1 \2/g')"
+if [ ! -z $1 ] ; then
+echo $1 > "$WORK_DIR/pwdfile" 
+PWD_ARGS="--password $WORK_DIR/pwdfile"
+fi
+
+"$GETH_BIN" --nousb --datadir "$WORK_DIR/datadir_tmp" account new $PWD_ARGS
+
+rm -f "$WORK_DIR/pwdfile"
+
+GENESIS_ACCOUNT="$($GETH_BIN --nousb  --datadir datadir_tmp/ account list 2>/dev/null | sed -r 's/.*\{([a-zA-Z0-9]+)\}.*keystore:\/\/(.*)/\1 \2/g')"
 
 ACCOUNT="$(echo $GENESIS_ACCOUNT | cut -d' ' -f1)"
 KEYFILE="$(echo $GENESIS_ACCOUNT | cut -d' ' -f2)"
@@ -32,6 +40,6 @@ cat "$WORK_DIR/init.json.template" | sed -f "$WORK_DIR/replacement.script" > "$W
 
 rm -f "$WORK_DIR/replacement.script"
 
-$GETH_BIN --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
+$GETH_BIN  --nousb --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
 
 

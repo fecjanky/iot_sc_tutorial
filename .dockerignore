@@ -1,1 +1,11 @@
-.gitignore
+datadir/
+geth-linux-*/
+geth-linux-*.tar.gz*
+init.json
+.vscode/
+.git/
+Dockerfile
+.dockerignore
+webui/node_modules/
+webui/scripts/data/
+
