@@ -13,7 +13,7 @@ var fs = require("fs");
 // var contractInstance;
 
 //connect to MongoDB
-mongoose.connect('mongodb://localhost/testForAuth', { useNewUrlParser: true, useCreateIndex: true });
+mongoose.connect('mongodb://localhost:27018/testForAuth', { useNewUrlParser: true, useCreateIndex: true });
 var db = mongoose.connection;
 
 //use sessions for tracking logins

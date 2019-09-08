@@ -156,7 +156,7 @@ function main(args) {
     let Web3 = require("web3");
     let CryptoJS = require("crypto-js");
     let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
-    let url = "mongodb://localhost:27017/Solidity";
+    let url = "mongodb://localhost:27018/Solidity";
     let creator = new PowerBidCreator(web3, url);
     let testUser = { password: "deadbeef", password2: CryptoJS.AES.encrypt("aa", "deadbeef").toString() }
 
