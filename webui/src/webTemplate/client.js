@@ -19,15 +19,30 @@ function getJSON(endpoint) {
     });
 }
 
+function logout() {
+    window.location = "logout/";
+}
+
+function logError(error) {
+    let log_prefix = `${new Date().toUTCString()} > `;
+    let logArea = document.getElementById("logArea");
+    logArea.innerHTML += `<p>${log_prefix}${error.toString()}</p>`;
+    logArea.scrollTop = logArea.scrollHeight;
+}
+
+function getJSONLogged(endpoint) {
+    return getJSON(endpoint).catch(logError);
+}
+
 function getUserData() {
-    return getJSON('/scapi?__call=userData').then(res => {
+    return getJSONLogged('/scapi?__call=userData').then(res => {
         document.getElementById("user").innerHTML = `User account:${res.account}`;
         return true;
     });
 }
 
 function getDeployedContracts() {
-    return getJSON('/scapi?__call=getDeployedContracts').then(res => {
+    return getJSONLogged('/scapi?__call=getDeployedContracts').then(res => {
         document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
         return true;
@@ -40,7 +55,7 @@ function getDeployedContracts() {
 // TODO: Display user data
 
 function getCtorAPI() {
-    return getJSON('/scapi?__call=getCurrentCtorAPI').then(addCtorAPI);
+    return getJSONLogged('/scapi?__call=getCurrentCtorAPI').then(addCtorAPI);
 }
 
 function addCtorAPI(ctorAPI) {
@@ -51,6 +66,7 @@ function addCtorAPI(ctorAPI) {
 
 function onLoad() {
     getUserData().then(r => getDeployedContracts()).then(r => getCtorAPI());
+    document.getElementById("logArea").innerHTML = "";
 }
 
 function encodeToURL(obj) {
@@ -64,7 +80,7 @@ function createContract() {
     Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
-    getJSON('/scapi?' + encodeToURL(callArgs)).then(address => {
+    getJSONLogged('/scapi?' + encodeToURL(callArgs)).then(address => {
         getDeployedContracts().then(r => {
             selectContract(address);
         });
@@ -102,7 +118,7 @@ function getCallOptions() {
 }
 
 function getAPI(contractAddress) {
-    getJSON(`/scapi?__call=getAPI&__address=${contractAddress}`)
+    getJSONLogged(`/scapi?__call=getAPI&__address=${contractAddress}`)
         .then(result => renderAPI(contractAddress, result));
 }
 
@@ -128,7 +144,7 @@ class APIElem {
         }.bind(this);
 
         this.callFunction = function (element) {
-            getJSON(this.toURLCall(this.getAllInputs())).then(function (result) {
+            getJSONLogged(this.toURLCall(this.getAllInputs())).then(function (result) {
                 // TODO:handle array return type
                 this.getAllOutputs().map(output => output.value = result);
             }.bind(this));
@@ -137,7 +153,7 @@ class APIElem {
         this.toHTML = function () {
             let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
             let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
-            return `<div class="api-elem" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button>:</div>` + inputs + "<div> => </div>" + outputs + "</div>";
+            return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button>:</div>` + inputs + "<div> => </div>" + outputs + "</div>";
         }.bind(this);
 
         this.placeholder = function () {

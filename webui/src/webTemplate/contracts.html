@@ -5,32 +5,41 @@
     <title>PowerBid smart contracts</title>
 </head>
 
-<body onload="onLoad()">
+<body onload="onLoad()" class="body">
     <script src="client.js">            </script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
     <h1>PowerBid smart contracts</h1>
     <!-- main -->
-    <div id="user" class="user-data"> </div>
-    <div id="main" class="contracts-main">
-        <div id="deployedContracts" class="contracts-container">
+    <div class="vertical-layout">
+        <div class="horizontal-layout">
+            <div id="user"> </div>
+            <div><button type="button" onClick="logout()">Logout</button></div>
         </div>
-        <div id="contractAPI" class="contracts-api">
-            <div id="callOptions" class="contracts-options">
-                <input type="text" name="gas" value="" placeholder="gas">
-                <input type="text" name="value" value="" placeholder="value">
-                <input type="text" name="gasPrice" value="" placeholder="gasPrice">
+        <div id="main" class="vertical-layout">
+            <div id="uimain" class="horizontal-layout">
+                <div id="deployedContracts" class="vertical-layout">
+                </div>
+                <div id="contractAPI" class="vertical-layout">
+                    <div id="callOptions" class="horizontal-layout">
+                        <input type="text" name="gas" value="" placeholder="gas">
+                        <input type="text" name="value" value="" placeholder="value">
+                        <input type="text" name="gasPrice" value="" placeholder="gasPrice">
+                    </div>
+                    <div id="callConstructor" class="horizontal-layout">
+                        <div><button type="button" id="createContract" onClick="createContract()">Deploy</div>
+                        <div id="callConstructorArgs" class="horizontal-layout"></div>
+                    </div>
+                    <div id="callAPI" class="vertical-layout"></div>
+                </div>
             </div>
-            <div id="callConstructor" class="contracts-ctor">
-                <div><button type="button" id="createContract" onClick="createContract()">Deploy</div>
-                <div id="callConstructorArgs" class="contracts-ctorargs"></div>
+            <div id="logwindow" class="logwindow">
+                <div id="logArea" class="logtext"></div>
             </div>
-            <div id="callAPI" class="contracts-args"></div>
+            <div id="chartwindow" class="chartwindow">
+                <div id="chart" class="chart"></div>
+            </div>
         </div>
-        <div id="logwindow" class="logwindow">
-            <div id="log" class="log"></div>
-        </div>
-
     </div>
 </body>
 

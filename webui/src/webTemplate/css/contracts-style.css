@@ -1,45 +1,26 @@
 
-.contracts-main {
-  display: inline-flex;
-  flex-direction: row;
-}
-
-.contracts-container {
-    display: inline-flex;
-    flex-direction: column;
-  }
-
-.contracts-api {
+.vertical-layout{
   display: inline-flex;
   flex-direction: column;
 }
 
-.contracts-args {
-  display: inline-flex;
-  flex-direction: column;
-}
-
-.contracts-options {
-  display: inline-flex;
-  flex-direction: row;
-}
-
-.contracts-ctor {
-  display: inline-flex;
-  flex-direction: row;
-}
-
-.contracts-ctorargs {
+.horizontal-layout{
   display: inline-flex;
   flex-direction: row;
 }
 
 
-
-.api-elem {
-  display: inline-flex;
-  flex-direction: row;
+.logwindow{
+  border-style: solid;
+  background: rgb(202, 198, 198);
 }
 
-.contracts{
+.logtext{
+  width: 100%;
+  height: 100px;
+  overflow-y: scroll;
+  overflow-x: scroll;
+  text-align: left;
+  font-family: Courier New,Courier,Lucida Sans Typewriter,Lucida Typewriter,monospace;
+  line-height: normal;
 }
