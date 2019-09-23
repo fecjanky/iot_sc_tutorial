@@ -67,7 +67,18 @@ router.post('/register', function (req, res, next) {
           return next(error);
         } else {
           req.session.userId = user._id;
-          return res.redirect('/contracts');
+          let registered = `
+          <html>
+           <head>
+            <meta http-equiv="refresh" content="3;url=contracts" />
+           </head>
+           <body>
+            <div id="user">${addr}</div>
+            <h1>Successfully registered,Redirecting in 3 seconds...</h1>
+           </body>
+          </html>
+          `.trim();
+          return res.send(registered);
         }
       });
     }).catch(function (error) {

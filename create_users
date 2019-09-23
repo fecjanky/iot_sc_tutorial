@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e 
+
+WORKDIR="$(dirname $0)"
+
+COUNT="$1"
+
+GENESISPWD="$2"
+
+if [ -z "$GENESISPWD" ]; then
+ echo "Missing password for genesis account..."
+ exit 1
+fi
+
+if [ -n "$COUNT" ] && [ "$COUNT" -eq "$COUNT" ]  && [ "$COUNT" -gt 0 ] 2>/dev/null; then
+
+while [ "$COUNT" -gt 0 ];
+do
+ ACCOUNT=$(wget  -q -O - "http://localhost:3000/register"  --post-data="username=user$COUNT&password=user$COUNT&passwordConf=user$COUNT" | sed -rn 's/\s*<div\s+id="user"\s*>(0x[a-zA-Z0-9]+)<\/div>\s*/\1/p')
+ echo user$COUNT with $ACCOUNT registered...
+ 
+ SCRIPT="personal.unlockAccount(eth.accounts[0], \"$GENESISPWD\", 600);eth.sendTransaction({ from: eth.accounts[0], to: \"$ACCOUNT\", value: web3.toWei(100, \"ether\")});personal.lockAccount(eth.accounts[0])" 
+ "$WORKDIR/start_geth" --exec "$SCRIPT" attach
+ COUNT=$(expr $COUNT - 1)
+done
+
+else
+  echo Count missing or not a number or less than 1...
+  exit 1
+fi
+
+
