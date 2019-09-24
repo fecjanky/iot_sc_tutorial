@@ -76,29 +76,26 @@ contract PowerBid {
     /// Withdraw the gain by the sender.
     function withdraw_gain() public returns (bool) {
         require(auctionEnded);
-        
-        if(msg.sender != consumer)return false;
+        require(msg.sender == consumer);
+        require(gain > 0)
         
         uint amount = gain;
-        if (amount > 0) {
-            gain = 0;
-            msg.sender.transfer(amount);
-        }
+        gain = 0;
+        msg.sender.transfer(amount);
+        
         return true;
     }
     
     // withdraw price of energy by the best supplier
     function withdraw() public returns (bool) {
         require(powerConsumed);
-        
-        if(msg.sender != bestSupplier)return false;
-        
+        require(msg.sender == bestSupplier);
+        require(price > 0)
+
         uint amount = price;
-        
-        if (amount > 0) {
-            price = 0;
-            msg.sender.transfer(amount);
-        }
+        price = 0;       
+        msg.sender.transfer(amount);
+
         return true;
     }
 
