@@ -4,7 +4,7 @@ let SolcWrapper = require('./solcWrapper');
 let ContractWrapper = require('./contractWrapper').ContractWrapper;
 let ContractConstructor = require('./contractWrapper').Constructor;
 let User = require('../model/user');
-
+let TrainingSession = require("./trainingSession").TrainingSession;
 
 // TODO: close mongo connection properly
 // TODO: add unit tests using MochaJS
@@ -33,13 +33,13 @@ class PowerBid {
 
     persist_contract(ethAddress) {
         console.log("persisting contract to db...");
-        Promise.all([MongoClient.connect(this.mongoDbUrl), this.solc.find_file()]).then(function (args) {
-            let [mongod, file] = args;
+        Promise.all([MongoClient.connect(this.mongoDbUrl), this.solc.find_file(), TrainingSession(this.mongoDbUrl).currentSession()]).then(function (args) {
+            let [mongod, file, currentSession] = args;
             if (file === null) {
                 console.log("file must be compiled before persisting contract...");
             } else {
                 let collection = mongod.db("Solidity").collection("contracts");
-                collection.insertOne({ address: ethAddress, contract: file }, (err, res) => {
+                collection.insertOne({ address: ethAddress, contract: file, sessionId: currentSession.sessionId }, (err, res) => {
                     if (err) console.log(err);
                     else console.log("succefully persisted contract with address:" + ethAddress);
                 });
@@ -159,6 +159,16 @@ function main(args) {
     let url = "mongodb://localhost:27018/Solidity";
     let creator = new PowerBidCreator(web3, url);
     let testUser = { password: "deadbeef", password2: CryptoJS.AES.encrypt("aa", "deadbeef").toString() }
+    let trainingSession = require("./trainingSession").TrainingSession(url);
+
+    let currSession = console.log(trainingSession.currentSession());
+
+    trainingSession.newSession().then(newSession => {
+        console.log(newSession);
+    });
+
+    return 0;
+
 
 
 
