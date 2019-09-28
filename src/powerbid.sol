@@ -58,6 +58,8 @@ contract PowerBid {
             "Auction already ended."
         );
 
+        // no free power
+        require( _price > 0 );
         // If the price is not better, snd the
         // money back.
         require(
@@ -77,7 +79,7 @@ contract PowerBid {
     function withdraw_gain() public returns (bool) {
         require(auctionEnded);
         require(msg.sender == consumer);
-        require(gain > 0)
+        require(gain > 0);
         
         uint amount = gain;
         gain = 0;
@@ -90,7 +92,7 @@ contract PowerBid {
     function withdraw() public returns (bool) {
         require(powerConsumed);
         require(msg.sender == bestSupplier);
-        require(price > 0)
+        require(price > 0);
 
         uint amount = price;
         price = 0;       

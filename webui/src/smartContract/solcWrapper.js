@@ -23,6 +23,9 @@ class SolcWrapper {
     compile_string(str) {
         let input = this.getConfig(str);
         let output = JSON.parse(solc.compile(JSON.stringify(input)))
+        if (output.errors !== undefined){
+            throw new Error(JSON.stringify(output.errors));
+        }
         return output;
     }
 
@@ -56,6 +59,7 @@ class SolcWrapper {
 
     compile_and_cache(data) {
         let compiled = this.compile_string(data);
+        console.log(compiled);
         let source_name = path.basename(this.filename);
         let contract_name = "PowerBid";
         MongoClient.connect(this.mongoDbUrl).then(function (conn) {
