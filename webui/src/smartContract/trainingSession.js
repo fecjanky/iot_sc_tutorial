@@ -23,12 +23,16 @@ class TrainingSession {
     currentSession() {
         return MongoClient.connect(this.mongoDbUrl).then(conn => {
             let collection = conn.db("Solidity").collection("sessions");
-            return collection.find().toArray();
+            return Promise.all([collection.find().toArray(), Promise.resolve(conn)]);
         }).then(results => {
-            if (results.length == 0) return 0;
-            return Session.from(results.filter(elem => !isNaN(elem.sessionId)).reduce(function (lhs, rhs) {
+            let [result, conn] = results;
+            console.log(result);
+            if (result.length == 0) return 0;
+            let currentSession = Session.from(result.filter(elem => !isNaN(elem.sessionId)).reduce(function (lhs, rhs) {
                 return lhs.sessionId > rhs.sessionId ? lhs : rhs;
             }, new Session(0)));
+            conn.close();
+            return currentSession;
         })
     }
 
@@ -47,9 +51,21 @@ class TrainingSession {
     getSession(sessionId) {
         return MongoClient.connect(this.mongoDbUrl).then(conn => {
             let collection = conn.db("Solidity").collection("sessions");
-            return collection.findOne({ sessionId: sessionId });
+            return Promise.all([collection.findOne({ sessionId: sessionId }), Promise.resolve(conn)]);
         }).then(result => {
-            return Session.from(result);
+            let session = Session.from(result);
+            conn.close();
+            return session;
+        });
+    }
+
+    getAllSessions() {
+        return MongoClient.connect(this.mongoDbUrl).then(conn => {
+            let collection = conn.db("Solidity").collection("sessions");
+            return Promise.all([collection.find().toArray(), conn]);
+        }).then(results => {
+            let [result, conn] = results;
+            return result.filter(elem => !isNaN(elem.sessionId)).map(elem => Session.from(elem));
         });
     }
 

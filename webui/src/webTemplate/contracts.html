@@ -18,7 +18,12 @@
         </div>
         <div id="main" class="vertical-layout">
             <div id="uimain" class="horizontal-layout">
-                <div id="deployedContracts" class="vertical-layout">
+                <div class="vertical-layout">
+                    <div>
+                        <select id="sessionSelector" onchange="onSessionChanged({type:'PowerBid'})">
+                        </select></div>
+                    <div id="deployedContracts" class="vertical-layout">
+                    </div>
                 </div>
                 <div id="contractAPI" class="vertical-layout">
                     <div id="callOptions" class="horizontal-layout">

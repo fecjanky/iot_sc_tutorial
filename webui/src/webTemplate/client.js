@@ -41,12 +41,46 @@ function getUserData() {
     });
 }
 
-function getDeployedContracts() {
-    return getJSONLogged('/scapi?__call=getDeployedContracts').then(res => {
+function getDeployedContracts(keys = {}) {
+    return getJSONLogged('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
         document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
         return true;
     });
+}
+
+function lastSession(sessions) {
+    let lastSession = 0;
+    let index = 0;
+    for (s in sessions) {
+        if (sessions[s].sessionId > lastSession) lastSession = sessions[s].sessionId;
+        index++;
+    }
+    return { lastSession: lastSession, index: index };
+}
+
+function onSessionChanged(args) {
+    clearAPI();
+    getDeployedContracts(args);
+}
+
+function getAllSessions() {
+    return getJSONLogged('/scapi?__call=getAllSessions').then(res => {
+        console.log(res);
+        let selector = document.getElementById('sessionSelector');
+        selector.options.length = 0;
+        selector.options.add(new Option());
+        res.map(elem => selector.options.add(new Option(`Session ${elem.sessionId}`, elem.sessionId)));
+        let last = lastSession(res);
+        selector.options.selectedIndex = last.index;
+        return true;
+    });
+}
+
+function getSelectedSession() {
+    let selector = document.getElementById('sessionSelector');
+    let value = selector.options.selectedIndex < 0 ? "" : selector.options[selector.options.selectedIndex].value;
+    return value !== "" ? { sessionId: +value } : {};
 }
 
 // TODO: factor out REST API URL encoding
@@ -65,7 +99,7 @@ function addCtorAPI(ctorAPI) {
 }
 
 function onLoad() {
-    getUserData().then(r => getDeployedContracts()).then(r => getCtorAPI());
+    getUserData().then(r => getAllSessions()).then(r => getDeployedContracts()).then(r => getCtorAPI());
     document.getElementById("logArea").innerHTML = "";
 }
 
@@ -81,9 +115,8 @@ function createContract() {
     let callArgs = { ...args, ...getCallOptions() };
 
     getJSONLogged('/scapi?' + encodeToURL(callArgs)).then(address => {
-        getDeployedContracts().then(r => {
-            selectContract(address);
-        });
+        addDeployedContract('deployedContracts', address, address)
+        selectContract(address);
     });
 }
 
@@ -100,7 +133,7 @@ function selectContract(id) {
         selectedContract.style.backgroundColor = "initial";
     }
     let newSelection = document.getElementById(id);
-    if (selectedContract !== newSelection) {
+    if (selectedContract !== newSelection && newSelection != null) {
         newSelection.style.backgroundColor = "green";
         selectedContract = newSelection;
         getAPI(selectedContract.innerHTML);

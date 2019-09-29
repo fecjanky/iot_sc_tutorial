@@ -131,12 +131,16 @@ router.get('/scapi', function (req, res, next) {
           console.log(req.query);
           let toCall = req.query.__call;
           delete req.query.__call;
-          SmartContractCreator[toCall](user, req.query).then((result) => {
-            sendJSON(res, { result: result });
-          }, error => {
-            console.log(error);
-            sendJSON(res, { error: error.message });
-          });
+          try {
+            SmartContractCreator[toCall](user, req.query).then((result) => {
+              sendJSON(res, { result: result });
+            }, error => {
+              console.log(error);
+              sendJSON(res, { error: error.message });
+            });
+          } catch (exception) {
+            return next(exception);
+          }
         }
       }
     });

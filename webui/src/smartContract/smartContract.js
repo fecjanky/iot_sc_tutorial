@@ -34,17 +34,19 @@ class PowerBid {
     persist_contract(ethAddress) {
         console.log("persisting contract to db...");
         Promise.all([MongoClient.connect(this.mongoDbUrl), this.solc.find_file(), TrainingSession(this.mongoDbUrl).currentSession()]).then(function (args) {
-            let [mongod, file, currentSession] = args;
+            let [conn, file, currentSession] = args;
             if (file === null) {
                 console.log("file must be compiled before persisting contract...");
             } else {
-                let collection = mongod.db("Solidity").collection("contracts");
-                collection.insertOne({ address: ethAddress, contract: file, sessionId: currentSession.sessionId }, (err, res) => {
+                let collection = conn.db("Solidity").collection("contracts");
+                let contract = { address: ethAddress, contract: file, sessionId: currentSession.sessionId.toString(), type: "PowerBid" };
+                console.log(contract);
+                collection.insertOne(contract, (err, res) => {
                     if (err) console.log(err);
                     else console.log("succefully persisted contract with address:" + ethAddress);
                 });
             }
-            mongod.close();
+            conn.close();
         }.bind(this));
     }
 
@@ -85,9 +87,11 @@ class PowerBidCreator {
         this.mongoDbUrl = mongoDbUrl;
 
         this.getDeployedContracts = function (user, args) {
+            console.log(args);
             return MongoClient.connect(this.mongoDbUrl).then(function (db) {
                 let collection = db.db("Solidity").collection("contracts");
-                return Promise.all([Promise.resolve(db), collection.find({}).toArray()]);
+                console.log(args)
+                return Promise.all([Promise.resolve(db), collection.find(args).toArray()]);
             }).then((args) => {
                 let [db, result] = args;
                 db.close();
@@ -122,6 +126,10 @@ class PowerBidCreator {
 
         this.userData = function (user, args) {
             return Promise.resolve({ account: user.ethaccount });
+        };
+
+        this.getAllSessions = function (user, args) {
+            return TrainingSession(this.mongoDbUrl).getAllSessions();
         };
 
         this.callContract = function (user, args) {
