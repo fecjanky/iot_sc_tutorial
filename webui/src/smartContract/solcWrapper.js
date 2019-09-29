@@ -15,24 +15,23 @@ let readFile = function (fileName, encoding = 'utf8') {
 };
 
 class SolcWrapper {
-    constructor(mongoDbUrl, fileName) {
+    constructor(mongoDbUrl, fileName, key = null) {
         this.mongoDbUrl = mongoDbUrl;
         this.filename = fileName;
+        this.key = key != null ? key : this.filename;
     }
 
     compile_string(str) {
         let input = this.getConfig(str);
         let output = JSON.parse(solc.compile(JSON.stringify(input)))
-        if (output.errors !== undefined){
-            throw new Error(JSON.stringify(output.errors));
+        if (output.errors !== undefined) {
+            return Promise.reject(Error(JSON.stringify(output.errors)));
         }
-        return output;
+        return Promise.resolve(output);
     }
 
     compile() {
-        return new Promise(function (resolve, reject) {
-            readFile(this.filename).then(data => resolve(this.compile_string(data)), reject);
-        }.bind(this));
+        return readFile(this.filename).then(data => this.compile_string(data));
     }
 
     compile_cached() {
@@ -50,7 +49,7 @@ class SolcWrapper {
 
     find_file() {
         return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
-            return conn.db("Solidity").collection("compiled").findOne({ filename: this.filename }).then(result => {
+            return conn.db("Solidity").collection("compiled").findOne({ filename: this.key }).then(result => {
                 conn.close();
                 return result;
             });
@@ -58,21 +57,26 @@ class SolcWrapper {
     }
 
     compile_and_cache(data) {
-        let compiled = this.compile_string(data);
-        console.log(compiled);
-        let source_name = path.basename(this.filename);
-        let contract_name = "PowerBid";
-        MongoClient.connect(this.mongoDbUrl).then(function (conn) {
-            // TODO: factor out contract name, and persist every contract from file
-            let compiledContract = compiled.contracts[source_name][contract_name];
-            let compiledContractBSON = SolcWrapper.serialize_compiled(compiledContract);
-            conn.db("Solidity").collection("compiled")
-                .updateOne({ filename: this.filename },
-                    { $set: { content: data, result: compiledContractBSON } },
-                    { upsert: true })
-                .then(result => conn.close());
-        }.bind(this), console.log);
-        return compiled.contracts[source_name][contract_name];
+        return this.compile_string(data).then(compiled => {
+            let source_name = path.basename(this.filename);
+            let compiledContracts = compiled.contracts[source_name];
+            let contractName = Object.keys(compiledContracts)[0];
+            let compiledContract = compiled.contracts[source_name][contractName];
+            MongoClient.connect(this.mongoDbUrl).then(function (conn) {
+                // TODO: persist every contract from file
+                console.log(`Contract name is ${contractName}`);
+                let compiledContractBSON = SolcWrapper.serialize_compiled(compiledContract);
+                conn.db("Solidity").collection("compiled")
+                    .updateOne({ filename: this.key },
+                        { $set: { content: data, result: compiledContractBSON } },
+                        { upsert: true })
+                    .then(result => {
+                        console.log("Persisted compiled contract to db");
+                        conn.close();
+                    });
+            }.bind(this), console.log);
+            return Promise.resolve(compiledContract);
+        });
     }
 
     static serialize_compiled(compiled) {
@@ -106,8 +110,8 @@ class SolcWrapper {
 }
 
 
-module.exports.SolcWrapper = function (mongoDbUrl, fileName) {
-    return new SolcWrapper(mongoDbUrl, fileName);
+module.exports.SolcWrapper = function (mongoDbUrl, fileName, key = null) {
+    return new SolcWrapper(mongoDbUrl, fileName, key);
 };
 module.exports.deserialize_compiled = SolcWrapper.deserialize_compiled;
 module.exports.serialize_compiled = SolcWrapper.serialize_compiled;

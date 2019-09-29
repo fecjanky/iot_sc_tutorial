@@ -8,6 +8,7 @@ let mongoose = require('mongoose');
 let session = require('express-session');
 let MongoStore = require('connect-mongo')(session);
 let fs = require("fs");
+let formidableMiddleware = require('express-formidable');
 
 //connect to MongoDB
 mongoose.connect('mongodb://localhost:27018/auth', { useNewUrlParser: true, useCreateIndex: true });

@@ -3,6 +3,7 @@ let router = express.Router();
 let User = require('../model/user').User;
 let path = require('path');
 let Web3 = require("web3");
+let formidable = require('formidable');
 // TODO: use HTTPs provider
 // TODO: rectify express routes
 
@@ -70,7 +71,7 @@ router.post('/register', function (req, res, next) {
           let registered = `
           <html>
            <head>
-            <meta http-equiv="refresh" content="3;url=contracts" />
+            <meta http-equiv="refresh" content="3;url=/contracts" />
            </head>
            <body>
             <div id="user">${addr}</div>
@@ -94,7 +95,7 @@ router.post('/register', function (req, res, next) {
 })
 
 // GET route after registering
-router.get('/contracts', function (req, res, next) {
+router.get('/:page(contracts|freestyle)', function (req, res, next) {
   User.findById(req.session.userId)
     .exec(function (error, user) {
       if (error) {
@@ -105,7 +106,43 @@ router.get('/contracts', function (req, res, next) {
           err.status = 400;
           return next(err);
         } else {
-          return res.sendFile(path.join(__dirname, '..', 'webTemplate', 'contracts.html'));
+          return res.sendFile(path.join(__dirname, '..', 'webTemplate', req.params.page + '.html'));
+        }
+      }
+    });
+});
+
+router.post('/upload', function (req, res, next) {
+  User.findById(req.session.userId)
+    .exec(function (error, user) {
+      if (error) {
+        return next(error);
+      } else {
+        if (user === null) {
+          let err = new Error('Not authorized! Go back!');
+          err.status = 400;
+          return next(err);
+        } else {
+          let form = new formidable.IncomingForm();
+          form.parse(req, function (err, fields, files) {
+            if (err) {
+              sendJSON(res, { error: err });
+            } else {
+              try {
+                console.log(files);
+                SmartContractCreator.handleUpload(user, files)
+                  .then(
+                    result => {
+                      sendJSON(res, { result: result });
+                    }).catch(error => {
+                      console.log(`error:${error}`);
+                      sendJSON(res, { error: error.message });
+                    });
+              } catch (exception) {
+                next(exception);
+              }
+            }
+          });
         }
       }
     });

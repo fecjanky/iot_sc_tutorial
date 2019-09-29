@@ -134,7 +134,15 @@ class PowerBidCreator {
 
         this.newSession = function (user, args) {
             return TrainingSession(this.mongoDbUrl).newSession();
-        }
+        };
+
+        this.handleUpload = function (user, files) {
+            let solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, files.contract.path, `${user.username}.contract`);
+            return solc.compile_cached().then(compiled => {
+                console.log("Uploaded contract is valid");
+                return "compiled";
+            });
+        };
 
         this.callContract = function (user, args) {
             let name = args.__name;

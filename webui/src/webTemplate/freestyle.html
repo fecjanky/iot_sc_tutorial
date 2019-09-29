@@ -9,7 +9,7 @@
     <script src="client.js">            </script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
-    <h1>PowerBid smart contracts</h1>
+    <h1>Smart contracts</h1>
     <!-- main -->
     <div class="vertical-layout">
         <div class="horizontal-layout">
@@ -17,10 +17,16 @@
             <div><button type="button" onClick="logout()">Logout</button></div>
         </div>
         <div id="main" class="vertical-layout">
+            <div id="contractuploader" class="horizontal-layout">
+                Upload smart contract: <input id="smartContractFile" type="file" name="smartContract"
+                    onchange="fileChanged(this)"><button type="button" onClick="upload()">Upload</button><img
+                    id="uploadSuccess" src="images/icons8-tick-box-48.png" style="visibility: hidden;" height="30"
+                    width="30" />
+            </div>
             <div id="uimain" class="horizontal-layout">
                 <div class="vertical-layout">
                     <div>
-                        <select id="sessionSelector" onchange="onSessionChanged({type:'PowerBid'})">
+                        <select id="sessionSelector" onchange="onSessionChanged({type:'FreeStyle'})">
                         </select></div>
                     <div id="deployedContracts" class="vertical-layout">
                     </div>

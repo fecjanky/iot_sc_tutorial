@@ -207,3 +207,32 @@ function renderAPI(address, api) {
     selectedAPI = api.filter(elem => elem.type === "function").map(elem => new APIElem(address, elem));
     document.getElementById('callAPI').innerHTML = selectedAPI.map(elem => elem.toHTML()).join('');
 }
+
+
+function fileChanged(input) {
+}
+
+function upload() {
+    document.getElementById('uploadSuccess').style.visibility = "hidden";
+    let photo = document.getElementById("smartContractFile").files[0];
+    let req = new XMLHttpRequest();
+    let formData = new FormData();
+    formData.append("contract", photo);
+    req.open("POST", '/upload');
+    req.onreadystatechange = function () {
+        if (req.readyState == 4) {
+            if (req.status == 200) {
+                let obj = JSON.parse(req.responseText);
+                if (obj.result !== undefined) {
+                    document.getElementById('uploadSuccess').style.visibility = "visible";
+                    console.log(obj.result);
+                }
+                else
+                    logError(obj.error)
+            } else {
+                logError("Failed to get response from upload, http status =" + req.status);
+            }
+        }
+    }
+    req.send(formData);
+}
