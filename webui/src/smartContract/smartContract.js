@@ -132,6 +132,10 @@ class PowerBidCreator {
             return TrainingSession(this.mongoDbUrl).getAllSessions();
         };
 
+        this.newSession = function (user, args) {
+            return TrainingSession(this.mongoDbUrl).newSession();
+        }
+
         this.callContract = function (user, args) {
             let name = args.__name;
             let address = args.__address;
