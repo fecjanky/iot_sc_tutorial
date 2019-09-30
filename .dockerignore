@@ -1,4 +1,5 @@
 datadir/
+doc/
 geth-linux-*/
 geth-linux-*.tar.gz*
 init.json

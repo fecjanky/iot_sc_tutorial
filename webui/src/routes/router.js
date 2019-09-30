@@ -7,6 +7,9 @@ let formidable = require('formidable');
 let formidableMiddleware = require('express-formidable');
 // TODO: use HTTPs provider
 // TODO: rectify express routes
+// TODO: web3 use secured provider
+// TODO: mogodb use secured connection, and authentication
+// TODO: add express middleware authenticated for fetching the user and enriching request
 
 let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
 
