@@ -5,7 +5,7 @@
     <title>PowerBid smart contracts</title>
 </head>
 
-<body onload="onLoad()" class="body">
+<body onload="onLoad({type:'FreeStyle'})" class="body">
     <script src="client.js">            </script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
@@ -39,7 +39,8 @@
                         <input type="text" name="gasPrice" value="" placeholder="gasPrice">
                     </div>
                     <div id="callConstructor" class="horizontal-layout">
-                        <div><button type="button" id="createContract" onClick="createContract()">Deploy</button></div>
+                        <div><button type="button" id="createContract"
+                                onClick="createFreeStyleContract()">Deploy</button></div>
                         <div id="callConstructorArgs" class="horizontal-layout"></div>
                     </div>
                     <div id="callAPI" class="vertical-layout"></div>

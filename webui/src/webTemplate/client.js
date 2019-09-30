@@ -66,7 +66,6 @@ function onSessionChanged(args) {
 
 function getAllSessions() {
     return getJSONLogged('/scapi?__call=getAllSessions').then(res => {
-        console.log(res);
         let selector = document.getElementById('sessionSelector');
         selector.options.length = 0;
         selector.options.add(new Option());
@@ -88,8 +87,8 @@ function getSelectedSession() {
 // TODO: logout button
 // TODO: Display user data
 
-function getCtorAPI() {
-    return getJSONLogged('/scapi?__call=getCurrentCtorAPI').then(addCtorAPI);
+function getCtorAPI(args) {
+    return getJSONLogged('/scapi?' + encodeToURL({ __call: "getCurrentCtorAPI", ...args })).then(addCtorAPI);
 }
 
 function addCtorAPI(ctorAPI) {
@@ -98,8 +97,8 @@ function addCtorAPI(ctorAPI) {
     return true;
 }
 
-function onLoad() {
-    getUserData().then(r => getAllSessions()).then(r => getDeployedContracts()).then(r => getCtorAPI());
+function onLoad(args = {}) {
+    getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
 }
 
@@ -107,10 +106,7 @@ function encodeToURL(obj) {
     return Object.keys(obj).map(key => `${key}=${obj[key]}`).join('&');
 }
 
-function createContract() {
-    args = {
-        __call: "createContract"
-    };
+function createContract_impl(args) {
     Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
@@ -118,6 +114,20 @@ function createContract() {
         addDeployedContract('deployedContracts', address, address)
         selectContract(address);
     });
+}
+
+function createContract() {
+    args = {
+        __call: "createContract"
+    };
+    createContract_impl(args);
+}
+function createFreeStyleContract() {
+    args = {
+        __call: "createContract",
+        __type: "FreeStyle"
+    };
+    createContract_impl(args);
 }
 
 function addDeployedContract(parentId, id, content) {
@@ -146,7 +156,10 @@ function selectContract(id) {
 
 function getCallOptions() {
     let res = {};
-    Array.from(document.getElementById('callOptions').children).forEach(elem => { if (elem.value !== "") res[elem.name] = elem.value; });
+    Array.from(document.getElementById('callOptions').children).forEach(elem => {
+        if (elem.value !== "" && elem.value !== undefined)
+            res[elem.name] = elem.value;
+    });
     return res;
 }
 
@@ -214,10 +227,10 @@ function fileChanged(input) {
 
 function upload() {
     document.getElementById('uploadSuccess').style.visibility = "hidden";
-    let photo = document.getElementById("smartContractFile").files[0];
+    let contract = document.getElementById("smartContractFile").files[0];
     let req = new XMLHttpRequest();
     let formData = new FormData();
-    formData.append("contract", photo);
+    formData.append("contract", contract);
     req.open("POST", '/upload');
     req.onreadystatechange = function () {
         if (req.readyState == 4) {
@@ -225,7 +238,7 @@ function upload() {
                 let obj = JSON.parse(req.responseText);
                 if (obj.result !== undefined) {
                     document.getElementById('uploadSuccess').style.visibility = "visible";
-                    console.log(obj.result);
+                    getCtorAPI({ type: "FreeStyle" });
                 }
                 else
                     logError(obj.error)

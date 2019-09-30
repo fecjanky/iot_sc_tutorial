@@ -57,7 +57,6 @@ class ContractWrapper {
             let bytecode = '0x' + compiled.evm.bytecode.object;
             let contract = new web3api.eth.Contract(compiled.abi);
             let transaction = contract.deploy({ data: bytecode, arguments: args });
-            console.log(args);
             return ContractWrapper.enrichOptions(true, web3api, transaction, options).then(enrichedOpts =>
                 ContractWrapper.sendTransaction(true, web3api, transaction, enrichedOpts, user)
             ).then(receipt => new ContractWrapper(new web3api.eth.Contract(compiled.abi, receipt.contractAddress), compiled.abi, web3api));
@@ -72,7 +71,6 @@ class ContractWrapper {
                 let args = ContractWrapper.paramsToArgs(elem.inputs, params);
                 let transaction = this.contract.methods[elem.name].apply(undefined, args);
                 let mutable = elem.stateMutability !== "view";
-                console.log(args);
                 return ContractWrapper.enrichOptions(mutable, web3api, transaction, options).then(enrichedOpts =>
                     ContractWrapper.sendTransaction(mutable, web3api, transaction, enrichedOpts, user)
                 );

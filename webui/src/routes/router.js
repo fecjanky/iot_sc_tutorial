@@ -4,6 +4,7 @@ let User = require('../model/user').User;
 let path = require('path');
 let Web3 = require("web3");
 let formidable = require('formidable');
+let formidableMiddleware = require('express-formidable');
 // TODO: use HTTPs provider
 // TODO: rectify express routes
 
@@ -112,6 +113,8 @@ router.get('/:page(contracts|freestyle)', function (req, res, next) {
     });
 });
 
+router.post('/upload', formidableMiddleware());
+
 router.post('/upload', function (req, res, next) {
   User.findById(req.session.userId)
     .exec(function (error, user) {
@@ -123,26 +126,19 @@ router.post('/upload', function (req, res, next) {
           err.status = 400;
           return next(err);
         } else {
-          let form = new formidable.IncomingForm();
-          form.parse(req, function (err, fields, files) {
-            if (err) {
-              sendJSON(res, { error: err });
-            } else {
-              try {
-                console.log(files);
-                SmartContractCreator.handleUpload(user, files)
-                  .then(
-                    result => {
-                      sendJSON(res, { result: result });
-                    }).catch(error => {
-                      console.log(`error:${error}`);
-                      sendJSON(res, { error: error.message });
-                    });
-              } catch (exception) {
-                next(exception);
-              }
-            }
-          });
+          try {
+            console.log(req.files);
+            SmartContractCreator.handleUpload(user, req.files)
+              .then(
+                result => {
+                  sendJSON(res, { result: result });
+                }).catch(error => {
+                  console.log(`error:${error}`);
+                  sendJSON(res, { error: error.message });
+                });
+          } catch (exception) {
+            next(exception);
+          }
         }
       }
     });
