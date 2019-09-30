@@ -3,6 +3,7 @@ let ContractConstructor = require('./contractWrapper').Constructor;
 let TrainingSession = require("./trainingSession").TrainingSession;
 let SolcWrapper = require('./solcWrapper');
 let MongoClient = require('mongodb').MongoClient;
+let path = require('path');
 
 class PersistedContract {
 

@@ -21,23 +21,16 @@ class TrainingSession {
     }
 
     currentSession() {
-        return MongoClient.connect(this.mongoDbUrl).then(conn => {
-            let collection = conn.db("Solidity").collection("sessions");
-            return Promise.all([collection.find().toArray(), Promise.resolve(conn)]);
-        }).then(results => {
-            let [result, conn] = results;
-            console.log(result);
-            if (result.length == 0) return 0;
-            let currentSession = Session.from(result.filter(elem => !isNaN(elem.sessionId)).reduce(function (lhs, rhs) {
+        return this.getAllSessions().then(sessions => {
+            let currentSession = sessions.reduce(function (lhs, rhs) {
                 return lhs.sessionId > rhs.sessionId ? lhs : rhs;
-            }, new Session(0)));
-            conn.close();
+            });
             return currentSession;
-        })
+        });
     }
 
-    newSession() {
-        return Promise.all([MongoClient.connect(this.mongoDbUrl), this.currentSession()]).then(result => {
+    newSession(sessionId = null) {
+        return Promise.all([MongoClient.connect(this.mongoDbUrl), sessionId == null ? this.currentSession() : Promise.resolve(new Session(sessionId))]).then(result => {
             let [conn, currSession] = result;
             let collection = conn.db("Solidity").collection("sessions");
             return Promise.all([Promise.resolve(conn), collection.insertOne(currSession.next())]);
@@ -65,7 +58,12 @@ class TrainingSession {
             return Promise.all([collection.find().toArray(), conn]);
         }).then(results => {
             let [result, conn] = results;
-            return result.filter(elem => !isNaN(elem.sessionId)).map(elem => Session.from(elem));
+            conn.close();
+            let sessions = result.filter(elem => !isNaN(elem.sessionId)).map(elem => Session.from(elem));
+            if (sessions.length === 0) {
+                return this.newSession(0).then(session => [session]);
+            }
+            return sessions;
         });
     }
 

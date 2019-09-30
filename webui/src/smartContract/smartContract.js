@@ -5,7 +5,6 @@ let PersistedContract = require('./persistedContract').PersistedContract;
 let User = require('../model/user');
 let TrainingSession = require("./trainingSession").TrainingSession;
 
-// TODO: close mongo connection properly
 // TODO: add unit tests using MochaJS
 // TODO: Mock mongo in tests: https://github.com/nodkz/mongodb-memory-server 
 // TODO: Mock web3 in tests ganache-cli
@@ -37,6 +36,9 @@ class SCAPI {
     getAPI(user, args) {
         return MongoClient.connect(this.mongoDbUrl).then(function (conn) {
             return conn.db('Solidity').collection("contracts").findOne({ address: args.__address }).then(function (result) {
+                if (result === undefined) {
+                    return {};
+                }
                 conn.close();
                 let compiled = SolcWrapper.deserialize_compiled(result.contract.result);
                 return compiled.abi

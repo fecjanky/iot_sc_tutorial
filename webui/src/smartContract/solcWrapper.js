@@ -37,14 +37,14 @@ class SolcWrapper {
     compile_cached() {
         return Promise.all([this.find_file(), this.filename != null ? readFile(this.filename) : Promise.resolve(null)]).then(function (values) {
             let [file_db, file_content] = values;
-            if (file_db === null || (file_db.content !== file_content && file_content !== null)) {
+            if (file_db === null && file_content !== null || (file_db !== null && file_content != null && (file_db.content !== file_content))) {
                 console.log("file has changed or not compiled yet, recompiling source...");
                 return this.compile_and_cache(file_content);
             } else if (file_db !== null) {
                 console.log("file has not changed, using compiled data from db...");
                 return SolcWrapper.deserialize_compiled(file_db.result);
             } else {
-                return Promise.reject("Missing contract");
+                return Promise.reject(Error("Missing contract"));
             }
         }.bind(this));
     }
