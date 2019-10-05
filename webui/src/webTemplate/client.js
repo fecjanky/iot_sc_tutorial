@@ -45,6 +45,7 @@ function getDeployedContracts(keys = {}) {
     return getJSONLogged('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
         document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
+        refreshSelection();
         return true;
     });
 }
@@ -100,6 +101,8 @@ function addCtorAPI(ctorAPI) {
 function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
+    let contractsRefreshInterval = 5 * 1000;
+    setInterval(function () { getDeployedContracts(args) }, contractsRefreshInterval);
 }
 
 function encodeToURL(obj) {
@@ -136,6 +139,14 @@ function addDeployedContract(parentId, id, content) {
 
 var selectedContract = null
 var selectedAPI = null
+
+function refreshSelection() {
+    if (selectedContract !== null) {
+        let newSelection = document.getElementById(selectedContract.id);
+        newSelection.style.backgroundColor = "green";
+        selectedContract = newSelection;
+    }
+}
 
 function selectContract(id) {
     // TODO change css style on-click instead of manually coloring
