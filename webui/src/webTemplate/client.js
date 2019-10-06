@@ -1,6 +1,6 @@
 function getJSON(endpoint) {
     return new Promise(function (resolve, reject) {
-        xmlhttp = new XMLHttpRequest();
+        let xmlhttp = new XMLHttpRequest();
         xmlhttp.open("GET", endpoint, true);
         xmlhttp.onreadystatechange = function () {
             if (xmlhttp.readyState == 4) {
@@ -8,8 +8,10 @@ function getJSON(endpoint) {
                     let obj = JSON.parse(xmlhttp.responseText);
                     if (obj.result !== undefined)
                         resolve(obj.result);
-                    else
+                    else if (obj.error !== undefined)
                         reject(obj.error)
+                    else
+                        reject(new Error("Uknown error occured while getting response from: " + endpoint));
                 } else {
                     reject(new Error("Failed to get response from endpoint:" + endpoint + ", http status =" + xmlhttp.status));
                 }
@@ -31,7 +33,10 @@ function logError(error) {
 }
 
 function getJSONLogged(endpoint) {
-    return getJSON(endpoint).catch(logError);
+    return getJSON(endpoint).catch(error => {
+        logError(error);
+        return Promise.reject(error);
+    });
 }
 
 function getUserData() {
@@ -98,11 +103,40 @@ function addCtorAPI(ctorAPI) {
     return true;
 }
 
+var gDynamicDecorators = {}
+
+var setUpDynamicDecorators = function () { };
+
+var AddScaler = function (decorators, subject, selector) { decorators.addScaler(subject, selector) };
+var AddDeScaler = function (decorators, subject, selector) { decorators.addDeScaler(subject, selector) };
+
+function setUpDynamicDecoratorsForPowerBid() {
+    let candidates = { bid_in__price: "finney" };
+    Object.keys(candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddScaler, candidates[id]));
+
+    let timeBasedOutputs = ["consumptionStartTime_out_", "consumptionEndTime_out_"];
+    timeBasedOutputs.forEach(elem => gDecorators.addTimeDecorator(document.getElementById(elem)));
+
+    let descaler_candidates = { maxPrice_out_: "finney", bestPrice_out_: "finney" };
+
+    Object.keys(descaler_candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddDeScaler, descaler_candidates[id]));
+}
+
+
+
 function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
     let contractsRefreshInterval = 5 * 1000;
     setInterval(function () { getDeployedContracts(args) }, contractsRefreshInterval);
+
+    addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
+    addDimensionSelector(document.getElementById("input_gasPrice"), Web3.utils.unitMap, AddScaler, "gwei");
+
+    if (args.type === "PowerBid") {
+        setUpDynamicDecorators = setUpDynamicDecoratorsForPowerBid;
+        renderAPI = powerBidRenderer;
+    }
 }
 
 function encodeToURL(obj) {
@@ -114,19 +148,19 @@ function createContract_impl(args) {
     let callArgs = { ...args, ...getCallOptions() };
 
     getJSONLogged('/scapi?' + encodeToURL(callArgs)).then(address => {
-        addDeployedContract('deployedContracts', address, address)
+        addDeployedContract('deployedContracts', address, address);
         selectContract(address);
     });
 }
 
 function createContract() {
-    args = {
+    let args = {
         __call: "createContract"
     };
     createContract_impl(args);
 }
 function createFreeStyleContract() {
-    args = {
+    let args = {
         __call: "createContract",
         __type: "FreeStyle"
     };
@@ -143,8 +177,10 @@ var selectedAPI = null
 function refreshSelection() {
     if (selectedContract !== null) {
         let newSelection = document.getElementById(selectedContract.id);
-        newSelection.style.backgroundColor = "green";
-        selectedContract = newSelection;
+        if (newSelection !== null) {
+            newSelection.style.backgroundColor = "green";
+            selectedContract = newSelection;
+        }
     }
 }
 
@@ -154,7 +190,7 @@ function selectContract(id) {
         selectedContract.style.backgroundColor = "initial";
     }
     let newSelection = document.getElementById(id);
-    if (selectedContract !== newSelection && newSelection != null) {
+    if (selectedContract !== newSelection && newSelection !== null) {
         newSelection.style.backgroundColor = "green";
         selectedContract = newSelection;
         getAPI(selectedContract.innerHTML);
@@ -165,11 +201,65 @@ function selectContract(id) {
     }
 }
 
+class Decorators {
+    constructor() {
+        this.decorators = {}
+    }
+    addScaler(subject, selector) {
+        this.decorators[subject.id] = function (value) {
+            return (Number(value) * Number(selector.options[selector.options.selectedIndex].value)).toString();
+        };
+    }
+    addDeScaler(subject, selector) {
+        this.decorators[subject.id] = function (value) {
+            return (Number(value) / Number(selector.options[selector.options.selectedIndex].value)).toString();
+        };
+    }
+
+    addTimeDecorator(subject) {
+        this.decorators[subject.id] = function (value) {
+            let date = new Date(Number(value) * 1000);
+            let str = date.toString();
+            subject.size = str.length;
+            return str;
+        };
+    }
+
+    decorate(id, value) {
+        return this.decorators[id] !== undefined ? this.decorators[id](value) : value;
+    }
+}
+
+var gDecorators = new Decorators();
+
+function addDimensionSelector(subject, values, decoratorType, defaultSelection = null) {
+    let selector = document.createElement("select");
+    selector.id = `${subject.id}_selector`;
+    let defaultIndex = 0;
+    let index = 0;
+    Object.keys(values).map(function (k, v) {
+        let option = document.createElement("option");
+        option.text = k;
+        option.value = values[k];
+        selector.appendChild(option);
+        if (defaultSelection === k) defaultIndex = index;
+        index++;
+    }.bind(this));
+    selector.options.selectedIndex = defaultIndex;
+    subject.parentElement.appendChild(selector);
+    decoratorType(gDecorators, subject, selector);
+    //gDecorators.addScaler(subject, selector);
+}
+
+
+
 function getCallOptions() {
     let res = {};
     Array.from(document.getElementById('callOptions').children).forEach(elem => {
-        if (elem.value !== "" && elem.value !== undefined)
-            res[elem.name] = elem.value;
+        Array.from(elem.children).filter(elem => elem.tagName === "INPUT").forEach(elem => {
+            if (elem.value !== "" && elem.value !== undefined)
+                res[elem.name] = gDecorators.decorate(elem.id, elem.value);
+        });
     });
     return res;
 }
@@ -203,7 +293,9 @@ class APIElem {
         this.callFunction = function (element) {
             getJSONLogged(this.toURLCall(this.getAllInputs())).then(function (result) {
                 // TODO:handle array return type
-                this.getAllOutputs().map(output => output.value = result);
+                this.getAllOutputs().map(output => {
+                    output.value = gDecorators.decorate(output.id, result);
+                });
             }.bind(this));
         }.bind(this);
 
@@ -219,7 +311,7 @@ class APIElem {
     }
     getAllInputs() {
         let res = {};
-        this.inputs.forEach(elem => { res[elem.name] = document.getElementById(`${this.name}_in_${elem.name}`).value });
+        this.inputs.forEach(elem => { res[elem.name] = gDecorators.decorate(`${this.name}_in_${elem.name}`, document.getElementById(`${this.name}_in_${elem.name}`).value); });
         return res;
     }
     getAllOutputs() {
@@ -227,10 +319,53 @@ class APIElem {
     }
 }
 
-function renderAPI(address, api) {
+
+function defaultRenderer(address, api) {
     selectedAPI = api.filter(elem => elem.type === "function").map(elem => new APIElem(address, elem));
     document.getElementById('callAPI').innerHTML = selectedAPI.map(elem => elem.toHTML()).join('');
+    setUpDynamicDecorators();
 }
+
+function powerBidRenderer(address, api) {
+    selectedAPI = [];
+    let grouping = {
+        "Auction Phase": ["consumer", "maxPrice", "requiredNRG", "bestSupplier", "bestPrice", "auction_time_left", "bid", "auctionEnd"],
+        "Consume Phase": ["consumptionStartTime", "consumptionEndTime", "consumePower"],
+        "Finish Phase": ["withdraw", "withdraw_gain"]
+    };
+    let renderPhase = function (phaseName, functions) {
+        let holder = document.createElement("div");
+        holder.className = "horizontal-layout";
+        let APIElemsHolder = document.createElement("div");
+        APIElemsHolder.className = "vertical-layout";
+        let PhaseControlHolder = document.createElement("div");
+        PhaseControlHolder.className = "vertical-layout";
+        //
+        let apiElems = functions.map(f => {
+            let apiFunction = api.find(elem => elem.name === f && elem.type === "function");
+            if (apiFunction !== undefined) {
+                return new APIElem(address, apiFunction);
+            }
+            return undefined;
+        });
+        APIElemsHolder.innerHTML = apiElems.map(elem => elem.toHTML()).join('');
+        selectedAPI.push(...apiElems);
+        PhaseControlHolder.innerHTML = "Phase control goes here...";
+        //
+        holder.appendChild(APIElemsHolder);
+        holder.appendChild(PhaseControlHolder);
+        return holder;
+    };
+    Object.keys(grouping).forEach(key => {
+        let callAPI = document.getElementById('callAPI');
+        callAPI.appendChild(renderPhase(key, grouping[key]));
+    });
+    setUpDynamicDecorators();
+}
+
+let renderAPI = defaultRenderer;
+
+
 
 
 function fileChanged(input) {

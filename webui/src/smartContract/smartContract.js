@@ -58,7 +58,10 @@ class SCAPI {
     createContract(user, args) {
         args = SCAPI.getTypeForCreate(args);
         let smartContract = this.create(this.getFilePath(args.type), this.getKey(user, args.type), args.type, user.ethaccount, args.args, user);
-        return smartContract.deploy().then(result => result.contract.options.address);
+        return smartContract.deploy().then(result => {
+            console.log(`created contract ${result.contract.options.address}`);
+            return result.contract.options.address;
+        });
     }
 
     userData(user, args) {

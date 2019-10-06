@@ -9,4 +9,4 @@ Dockerfile
 .dockerignore
 webui/node_modules/
 webui/scripts/data/
-
+web3.js/

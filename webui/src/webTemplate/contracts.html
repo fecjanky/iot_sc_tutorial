@@ -5,8 +5,9 @@
     <title>PowerBid smart contracts</title>
 </head>
 
-<body onload="onLoad()" class="body">
-    <script src="client.js">            </script>
+<body onload="onLoad({type:'PowerBid'})" class="body">
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+    <script src="client.js"></script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
     <h1>PowerBid smart contracts</h1>
@@ -19,18 +20,24 @@
         <div id="main" class="vertical-layout">
             <div id="uimain" class="horizontal-layout">
                 <div class="vertical-layout">
-                    <div>
-                        <select id="sessionSelector" onchange="onSessionChanged()">
-                        </select></div>
+                    <div class="horizontal-layout">
+                        <div>
+                            <select id="sessionSelector" onchange="onSessionChanged()"></select>
+                        </div>
+                        <div><button type="button" onClick="logout()">Logout</button></div>
+                    </div>
                     <div id="deployedContracts" class="vertical-layout">
                     </div>
                 </div>
                 <div id="contractAPI" class="vertical-layout">
-                    <div id="callOptions" class="horizontal-layout">
+                    <div class="horizontal-layout">
                         <div class="button">TX Options</div>
-                        <input type="text" name="gas" value="" placeholder="gas">
-                        <input type="text" name="value" value="" placeholder="value">
-                        <input type="text" name="gasPrice" value="" placeholder="gasPrice">
+                        <div id="callOptions" class="horizontal-layout">
+                            <div><input type="text" id="input_gas" name="gas" value="" placeholder="gas"></div>
+                            <div><input type="text" id="input_value" name="value" value="" placeholder="value"></div>
+                            <div><input type="text" id="input_gasPrice" name="gasPrice" value="" placeholder="gasPrice">
+                            </div>
+                        </div>
                     </div>
                     <div id="callConstructor" class="horizontal-layout">
                         <div><button type="button" id="createContract" onClick="createContract()">Deploy</button></div>
