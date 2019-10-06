@@ -1,4 +1,4 @@
-function getJSON(endpoint) {
+function getJSON(endpoint, statusLocation = null) {
     return new Promise(function (resolve, reject) {
         let xmlhttp = new XMLHttpRequest();
         xmlhttp.open("GET", endpoint, true);
@@ -6,19 +6,38 @@ function getJSON(endpoint) {
             if (xmlhttp.readyState == 4) {
                 if (xmlhttp.status == 200) {
                     let obj = JSON.parse(xmlhttp.responseText);
-                    if (obj.result !== undefined)
+                    if (obj.result !== undefined) {
+                        if (statusLocation !== null && statusLocation !== undefined) {
+                            clearAllChildren(statusLocation);
+                            statusLocation.appendChild(images.success.cloneNode());
+                        }
                         resolve(obj.result);
-                    else if (obj.error !== undefined)
-                        reject(obj.error)
-                    else
-                        reject(new Error("Uknown error occured while getting response from: " + endpoint));
+                        return;
+                    }
+                    else if (obj.error !== undefined) { reject(obj.error) }
+                    else { reject(new Error("Uknown error occured while getting response from: " + endpoint)); }
                 } else {
                     reject(new Error("Failed to get response from endpoint:" + endpoint + ", http status =" + xmlhttp.status));
                 }
+                if (statusLocation !== null && statusLocation !== undefined) {
+                    clearAllChildren(statusLocation);
+                    statusLocation.appendChild(images.failure.cloneNode());
+                }
             }
+        }
+        if (statusLocation) {
+            clearAllChildren(statusLocation);
+            statusLocation.appendChild(images.loading.cloneNode());
         }
         xmlhttp.send();
     });
+}
+
+function clearAllChildren(node) {
+    if (node === null || node === undefined) return;
+    while (node.firstChild) {
+        node.removeChild(node.firstChild);
+    }
 }
 
 function logout() {
@@ -32,8 +51,8 @@ function logError(error) {
     logArea.scrollTop = logArea.scrollHeight;
 }
 
-function getJSONLogged(endpoint) {
-    return getJSON(endpoint).catch(error => {
+function getJSONLogged(endpoint, statusLocation = null) {
+    return getJSON(endpoint, statusLocation).catch(error => {
         logError(error);
         return Promise.reject(error);
     });
@@ -123,11 +142,23 @@ function setUpDynamicDecoratorsForPowerBid() {
 }
 
 
+class PreloadedImages {
+    constructor() {
+        this.loading = new Image(18, 18);
+        this.success = new Image(24, 24);
+        this.failure = new Image(18, 18);
+        this.loading.src = "images/ajax-loader.gif";
+        this.success.src = "images/icons8-tick-box-48.png";
+        this.failure.src = "images/x-mark-3-48.png";
+    }
+}
+
+let images = new PreloadedImages();
 
 function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
-    let contractsRefreshInterval = 5 * 1000;
+    let contractsRefreshInterval = 11 * 1000;
     setInterval(function () { getDeployedContracts(args) }, contractsRefreshInterval);
 
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
@@ -136,9 +167,9 @@ function onLoad(args = {}) {
     if (args.type === "PowerBid") {
         setUpDynamicDecorators = setUpDynamicDecoratorsForPowerBid;
         renderAPI = powerBidRenderer;
-        let auction_time_left_interval = 2 * 1000;
+        let auction_time_left_interval = 7 * 1000;
         setInterval(function () {
-            callAPIFunction("auction_time_left");
+            callAPIFunction("auction_time_left", true);
         }, auction_time_left_interval);
     }
 }
@@ -151,7 +182,7 @@ function createContract_impl(args) {
     Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.tagName === "INPUT" && elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
-    getJSONLogged('/scapi?' + encodeToURL(callArgs)).then(address => {
+    getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(address => {
         addDeployedContract('deployedContracts', address, address);
         selectContract(address);
     });
@@ -180,24 +211,24 @@ var selectedAPI = null
 
 function refreshSelection() {
     if (selectedContract !== null) {
-        let newSelection = document.getElementById(selectedContract.id);
+        let newSelection = document.getElementById(selectedContract);
         if (newSelection !== null) {
             newSelection.style.backgroundColor = "green";
-            selectedContract = newSelection;
         }
     }
 }
 
 function selectContract(id) {
     // TODO change css style on-click instead of manually coloring
-    if (selectedContract !== null) {
-        selectedContract.style.backgroundColor = "initial";
+    let selection = document.getElementById(selectedContract);
+    if (selection !== null) {
+        selection.style.backgroundColor = "initial";
     }
     let newSelection = document.getElementById(id);
-    if (selectedContract !== newSelection && newSelection !== null) {
+    if (selectedContract !== id && newSelection !== null) {
         newSelection.style.backgroundColor = "green";
-        selectedContract = newSelection;
-        getAPI(selectedContract.innerHTML);
+        selectedContract = id;
+        getAPI(newSelection.innerHTML);
     } else {
         selectedContract = null;
         selectedAPI = null;
@@ -274,17 +305,15 @@ function getAPI(contractAddress) {
 
 function clearAPI() {
     let callApiNode = document.getElementById('callAPI');
-    while (callApiNode.firstChild) {
-        callApiNode.removeChild(callApiNode.firstChild);
-    }
+    clearAllChildren(callApiNode);
 }
 
-function callAPIFunction(id) {
+function callAPIFunction(id, noStatus = false) {
     let api_id = id.replace("_button", "");
     if (selectedAPI !== null) {
         let apiElem = selectedAPI.find(elem => elem.name === api_id);
         if (apiElem !== undefined) {
-            apiElem.callFunction();
+            apiElem.callFunction(noStatus);
         }
     }
 }
@@ -296,36 +325,33 @@ class APIElem {
         this.inputs = abiDesrciption.inputs;
         this.outputs = abiDesrciption.outputs;
         this.stateMutability = abiDesrciption.stateMutability;
+    }
 
-        this.toURLCall = function (args) {
-            console.log(args);
-            return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
-        }.bind(this);
+    toURLCall(args) {
+        return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
+    }
+    callFunction(noStatus = false) {
+        getJSONLogged(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
+            // TODO:handle array return type
+            this.getAllOutputs().map(output => {
+                output.value = gDecorators.decorate(output.id, result);
+            });
+        }.bind(this));
+    }
+    toHTML() {
+        let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
+        if (inputs.length === 0) {
+            inputs = "()";
+        }
+        let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
+        if (outputs.length === 0) {
+            outputs = "()";
+        }
+        return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button></div><div id="${this.name}_status" class="StatusSymbol"></div>` + inputs + "<div> => </div>" + outputs + "</div>";
+    };
 
-        this.callFunction = function () {
-            getJSONLogged(this.toURLCall(this.getAllInputs())).then(function (result) {
-                // TODO:handle array return type
-                this.getAllOutputs().map(output => {
-                    output.value = gDecorators.decorate(output.id, result);
-                });
-            }.bind(this));
-        }.bind(this);
-
-        this.toHTML = function () {
-            let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
-            if (inputs.length === 0) {
-                inputs = "()";
-            }
-            let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
-            if (outputs.length === 0) {
-                outputs = "()";
-            }
-            return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button></div>` + inputs + "<div> => </div>" + outputs + "</div>";
-        }.bind(this);
-
-        this.placeholder = function () {
-            return document.getElementById(this.name);
-        }.bind(this);
+    placeholder() {
+        return document.getElementById(this.name);
     }
     getAllInputs() {
         let res = {};
@@ -336,6 +362,7 @@ class APIElem {
         return this.outputs.map(elem => document.getElementById(`${this.name}_out_${elem.name}`));
     }
 }
+
 
 
 function defaultRenderer(address, api) {
@@ -403,7 +430,7 @@ function fileChanged(input) {
 }
 
 function upload() {
-    document.getElementById('uploadSuccess').style.visibility = "hidden";
+    let statusLocation = document.getElementById('upload_status');
     let contract = document.getElementById("smartContractFile").files[0];
     let req = new XMLHttpRequest();
     let formData = new FormData();
@@ -414,15 +441,21 @@ function upload() {
             if (req.status == 200) {
                 let obj = JSON.parse(req.responseText);
                 if (obj.result !== undefined) {
-                    document.getElementById('uploadSuccess').style.visibility = "visible";
+                    clearAllChildren(statusLocation);
+                    statusLocation.appendChild(images.success.cloneNode());
                     getCtorAPI({ type: "FreeStyle" });
+                    return;
                 }
                 else
                     logError(obj.error)
             } else {
                 logError("Failed to get response from upload, http status =" + req.status);
             }
+            clearAllChildren(statusLocation);
+            statusLocation.appendChild(images.failure.cloneNode());
         }
     }
+    clearAllChildren(statusLocation);
+    statusLocation.appendChild(images.loading.cloneNode());
     req.send(formData);
 }

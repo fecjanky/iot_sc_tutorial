@@ -36,6 +36,12 @@
   line-height: normal;
 }
 
+.StatusSymbol{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .PhaseControl{
   display: flex;
   align-items: center;
