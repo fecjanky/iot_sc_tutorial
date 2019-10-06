@@ -44,18 +44,35 @@ function logout() {
     window.location = "logout/";
 }
 
-function logError(error) {
-    let log_prefix = `${new Date().toUTCString()} > `;
-    let logArea = document.getElementById("logArea");
-    logArea.innerHTML += `<p>${log_prefix}${error.toString()}</p>`;
-    logArea.scrollTop = logArea.scrollHeight;
+function createLogger(style) {
+    let bloomFilter = function (key, value) {
+        // Filtering out properties
+        if (key === 'logsBloom') {
+            return undefined;
+        }
+        return value;
+    }
+    return function (result) {
+        let log_prefix = `${new Date().toUTCString()} > `;
+        let logArea = document.getElementById("logArea");
+        logArea.innerHTML += `<p><pre class="${style}" id="json">${log_prefix}${JSON.stringify(result, bloomFilter, 2)}</pre></p>`;
+        logArea.scrollTop = logArea.scrollHeight;
+    };
 }
 
+let logError = createLogger("errorLog");
+let logSuccess = createLogger("successLog");
+
 function getJSONLogged(endpoint, statusLocation = null) {
-    return getJSON(endpoint, statusLocation).catch(error => {
-        logError(error);
-        return Promise.reject(error);
-    });
+    return getJSON(endpoint, statusLocation)
+        .then(result => {
+            logSuccess(result);
+            return Promise.resolve(result);
+        })
+        .catch(error => {
+            logError(error);
+            return Promise.reject(error);
+        });
 }
 
 function getUserData() {
@@ -65,8 +82,8 @@ function getUserData() {
     });
 }
 
-function getDeployedContracts(keys = {}) {
-    return getJSONLogged('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
+function getDeployedContracts(keys = {}, getFunction = getJSONLogged) {
+    return getFunction('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
         document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
         refreshSelection();
@@ -159,7 +176,7 @@ function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
     let contractsRefreshInterval = 11 * 1000;
-    setInterval(function () { getDeployedContracts(args) }, contractsRefreshInterval);
+    setInterval(function () { getDeployedContracts(args, getJSON) }, contractsRefreshInterval);
 
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
     addDimensionSelector(document.getElementById("input_gasPrice"), Web3.utils.unitMap, AddScaler, "gwei");
@@ -169,7 +186,7 @@ function onLoad(args = {}) {
         renderAPI = powerBidRenderer;
         let auction_time_left_interval = 7 * 1000;
         setInterval(function () {
-            callAPIFunction("auction_time_left", true);
+            callAPIFunction("auction_time_left", true, getJSON);
         }, auction_time_left_interval);
     }
 }
@@ -308,12 +325,12 @@ function clearAPI() {
     clearAllChildren(callApiNode);
 }
 
-function callAPIFunction(id, noStatus = false) {
+function callAPIFunction(id, noStatus = false, getter = getJSONLogged) {
     let api_id = id.replace("_button", "");
     if (selectedAPI !== null) {
         let apiElem = selectedAPI.find(elem => elem.name === api_id);
         if (apiElem !== undefined) {
-            apiElem.callFunction(noStatus);
+            apiElem.callFunction(noStatus, getter);
         }
     }
 }
@@ -330,8 +347,8 @@ class APIElem {
     toURLCall(args) {
         return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
     }
-    callFunction(noStatus = false) {
-        getJSONLogged(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
+    callFunction(noStatus = false, getter = getJSONLogged) {
+        getter(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
             // TODO:handle array return type
             this.getAllOutputs().map(output => {
                 output.value = gDecorators.decorate(output.id, result);

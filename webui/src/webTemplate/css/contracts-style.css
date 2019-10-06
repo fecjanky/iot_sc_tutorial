@@ -24,15 +24,18 @@
 .logwindow{
   border-style: solid;
   background: rgb(202, 198, 198);
+  word-wrap: normal;
+  width: 100%;
 }
 
 .logtext{
-  width: 100%;
   height: 250px;
   overflow-y: scroll;
-  overflow-x: scroll;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   text-align: left;
   font-family: Courier New,Courier,Lucida Sans Typewriter,Lucida Typewriter,monospace;
+  font-size: 12px;
   line-height: normal;
 }
 
@@ -52,3 +55,24 @@
 .PhaseControl-item {
   flex: 1;
 }
+
+.errorLog{
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  color: red;
+}
+.successLog{
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  color: darkgreen;
+}
+
+
+pre {
+  white-space: pre-wrap;       /* css-3 */
+  white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+  white-space: -pre-wrap;      /* Opera 4-6 */
+  white-space: -o-pre-wrap;    /* Opera 7 */
+  word-wrap: break-word;       /* Internet Explorer 5.5+ */
+ }
+
