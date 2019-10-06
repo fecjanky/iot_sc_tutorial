@@ -35,3 +35,14 @@
   font-family: Courier New,Courier,Lucida Sans Typewriter,Lucida Typewriter,monospace;
   line-height: normal;
 }
+
+.PhaseControl{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left-style: solid
+}
+
+.PhaseControl-item {
+  flex: 1;
+}

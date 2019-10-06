@@ -99,7 +99,7 @@ function getCtorAPI(args) {
 
 function addCtorAPI(ctorAPI) {
     document.getElementById('callConstructorArgs').innerHTML =
-        ctorAPI.map(elem => `<input type="text" name="${elem.name}" value="" placeholder="${elem.name}">`).join('');
+        ctorAPI.map(elem => `<div class="button">${elem.name}</div><input type="text" name="${elem.name}" value="" placeholder="${elem.name}">`).join('');
     return true;
 }
 
@@ -136,6 +136,10 @@ function onLoad(args = {}) {
     if (args.type === "PowerBid") {
         setUpDynamicDecorators = setUpDynamicDecoratorsForPowerBid;
         renderAPI = powerBidRenderer;
+        let auction_time_left_interval = 2 * 1000;
+        setInterval(function () {
+            callAPIFunction("auction_time_left");
+        }, auction_time_left_interval);
     }
 }
 
@@ -144,7 +148,7 @@ function encodeToURL(obj) {
 }
 
 function createContract_impl(args) {
-    Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.value !== "") args[elem.name] = elem.value; });
+    Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.tagName === "INPUT" && elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
     getJSONLogged('/scapi?' + encodeToURL(callArgs)).then(address => {
@@ -248,7 +252,6 @@ function addDimensionSelector(subject, values, decoratorType, defaultSelection =
     selector.options.selectedIndex = defaultIndex;
     subject.parentElement.appendChild(selector);
     decoratorType(gDecorators, subject, selector);
-    //gDecorators.addScaler(subject, selector);
 }
 
 
@@ -270,12 +273,20 @@ function getAPI(contractAddress) {
 }
 
 function clearAPI() {
-    document.getElementById('callAPI').innerHTML = "";
+    let callApiNode = document.getElementById('callAPI');
+    while (callApiNode.firstChild) {
+        callApiNode.removeChild(callApiNode.firstChild);
+    }
 }
 
 function callAPIFunction(id) {
     let api_id = id.replace("_button", "");
-    selectedAPI.filter(elem => elem.name === api_id)[0].callFunction(document.getElementById(api_id));
+    if (selectedAPI !== null) {
+        let apiElem = selectedAPI.find(elem => elem.name === api_id);
+        if (apiElem !== undefined) {
+            apiElem.callFunction();
+        }
+    }
 }
 
 class APIElem {
@@ -284,13 +295,14 @@ class APIElem {
         this.name = abiDesrciption.name;
         this.inputs = abiDesrciption.inputs;
         this.outputs = abiDesrciption.outputs;
+        this.stateMutability = abiDesrciption.stateMutability;
 
         this.toURLCall = function (args) {
             console.log(args);
             return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
         }.bind(this);
 
-        this.callFunction = function (element) {
+        this.callFunction = function () {
             getJSONLogged(this.toURLCall(this.getAllInputs())).then(function (result) {
                 // TODO:handle array return type
                 this.getAllOutputs().map(output => {
@@ -301,8 +313,14 @@ class APIElem {
 
         this.toHTML = function () {
             let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
+            if (inputs.length === 0) {
+                inputs = "()";
+            }
             let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
-            return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button>:</div>` + inputs + "<div> => </div>" + outputs + "</div>";
+            if (outputs.length === 0) {
+                outputs = "()";
+            }
+            return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button></div>` + inputs + "<div> => </div>" + outputs + "</div>";
         }.bind(this);
 
         this.placeholder = function () {
@@ -339,8 +357,9 @@ function powerBidRenderer(address, api) {
         let APIElemsHolder = document.createElement("div");
         APIElemsHolder.className = "vertical-layout";
         let PhaseControlHolder = document.createElement("div");
-        PhaseControlHolder.className = "vertical-layout";
-        //
+        PhaseControlHolder.classList.add("vertical-layout");
+        PhaseControlHolder.classList.add("PhaseControl");
+
         let apiElems = functions.map(f => {
             let apiFunction = api.find(elem => elem.name === f && elem.type === "function");
             if (apiFunction !== undefined) {
@@ -348,16 +367,28 @@ function powerBidRenderer(address, api) {
             }
             return undefined;
         });
+
         APIElemsHolder.innerHTML = apiElems.map(elem => elem.toHTML()).join('');
         selectedAPI.push(...apiElems);
-        PhaseControlHolder.innerHTML = "Phase control goes here...";
+
+        let PhaseControlTag = document.createElement("div");
+        PhaseControlTag.innerHTML = phaseName;
+        PhaseControlTag.className = "button";
+        let PhaseControlGetter = document.createElement("button");
+        PhaseControlGetter.innerHTML = "Refresh All";
+        PhaseControlGetter.onclick = function () {
+            apiElems.filter(elem => elem.stateMutability === "view").forEach(elem => elem.callFunction());
+        }
+        PhaseControlHolder.appendChild(PhaseControlTag);
+        PhaseControlHolder.appendChild(PhaseControlGetter)
         //
         holder.appendChild(APIElemsHolder);
         holder.appendChild(PhaseControlHolder);
         return holder;
     };
+    let callAPI = document.getElementById('callAPI');
+    clearAPI();
     Object.keys(grouping).forEach(key => {
-        let callAPI = document.getElementById('callAPI');
         callAPI.appendChild(renderPhase(key, grouping[key]));
     });
     setUpDynamicDecorators();
