@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>PowerBid smart contracts</title>
+    <title>Blockchain tutorial</title>
 </head>
 
 <body onload="onLoad({type:'PowerBid'})" class="body">
@@ -10,28 +10,34 @@
     <script src="client.js"></script>
     <link rel="stylesheet" type="text/css" href="css/contracts-style.css">
 
-    <h1>PowerBid smart contracts</h1>
+    <div class="headerBar horizontal-layout">
+        <div><button type="button" onClick="window.location='/contracts'">PowerBid mode</button></div>
+        <div><button type="button" onClick="window.location='/freestyle'">Freestyle mode</button></div>
+        <div><button type="button" onClick="logout()">Logout</button></div>
+    </div>
+    <h1>PowerBid Smart contracts</h1>
     <!-- main -->
     <div class="vertical-layout">
-        <div class="horizontal-layout">
-            <div id="user"> </div>
+        <div class="horizontal-layout padded">
+            <div class="button">User account</div>
+            <div id="user" class="user"> </div>
+            <div class="horizontallyPadded">
+                <select id="sessionSelector" onchange="onSessionChanged()"></select>
+            </div>
         </div>
         <div id="main" class="vertical-layout">
             <div id="uimain" class="horizontal-layout">
                 <div class="vertical-layout">
-                    <div class="horizontal-layout">
-                        <div>
-                            <select id="sessionSelector" onchange="onSessionChanged()"></select>
+                    <div class="vertical-layout padded">
+                        <div class="button">Deployed contracts</div>
+                        <div id="deployedContracts" class="vertical-layout">
                         </div>
-                        <div><button type="button" onClick="logout()">Logout</button></div>
-                    </div>
-                    <div id="deployedContracts" class="vertical-layout">
                     </div>
                 </div>
                 <div id="contractAPI" class="vertical-layout">
                     <div class="horizontal-layout">
                         <div class="button">TX Options</div>
-                        <div id="callOptions" class="horizontal-layout">
+                        <div id="callOptions" class="horizontal-layout padded">
                             <div class="horizontal-layout">
                                 <div class="button">gas</div>
                                 <input type="text" id="input_gas" name="gas" value="" placeholder="gas">
@@ -46,15 +52,16 @@
                             </div>
                         </div>
                     </div>
-                    <div id="callConstructor" class="horizontal-layout">
-                        <div><button type="button" id="createContract" onClick="createContract()">Deploy</button></div>
+                    <div id="callConstructor" class="horizontal-layout padded">
+                        <div class="horizontallyPadded"><button type="button" id="createContract"
+                                onClick="createContract()">Deploy</button></div>
                         <div id="callConstructor_status" class="StatusSymbol"></div>
                         <div id="callConstructorArgs" class="horizontal-layout"></div>
                     </div>
                     <div id="callAPI" class="vertical-layout"></div>
                 </div>
             </div>
-            <div id="logwindow" class="logwindow">
+            <div id="logwindow" class="logwindow padded">
                 <div id="logArea" class="logtext"></div>
             </div>
             <div id="chartwindow" class="chartwindow">

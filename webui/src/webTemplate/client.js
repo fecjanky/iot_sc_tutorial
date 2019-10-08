@@ -77,7 +77,7 @@ function getJSONLogged(endpoint, statusLocation = null) {
 
 function getUserData() {
     return getJSONLogged('/scapi?__call=userData').then(res => {
-        document.getElementById("user").innerHTML = `User account:${res.account}`;
+        document.getElementById("user").innerHTML = res.account;
         return true;
     });
 }
@@ -220,7 +220,7 @@ function createFreeStyleContract() {
 }
 
 function addDeployedContract(parentId, id, content) {
-    document.getElementById(parentId).innerHTML += `<div id=${id} onClick="selectContract(this.id)">${content}</div>`;
+    document.getElementById(parentId).innerHTML += `<div id=${id} class="button" onClick="selectContract(this.id)">${content}</div>`;
 }
 
 var selectedContract = null
@@ -397,9 +397,14 @@ function powerBidRenderer(address, api) {
     };
     let renderPhase = function (phaseName, functions) {
         let holder = document.createElement("div");
-        holder.className = "horizontal-layout";
+
+        holder.classList.add("PhaseContainer");
+        holder.classList.add("horizontal-layout");
+        holder.classList.add("padded");
+
         let APIElemsHolder = document.createElement("div");
-        APIElemsHolder.className = "vertical-layout";
+        APIElemsHolder.classList.add("vertical-layout");
+
         let PhaseControlHolder = document.createElement("div");
         PhaseControlHolder.classList.add("vertical-layout");
         PhaseControlHolder.classList.add("PhaseControl");
@@ -417,17 +422,19 @@ function powerBidRenderer(address, api) {
 
         let PhaseControlTag = document.createElement("div");
         PhaseControlTag.innerHTML = phaseName;
-        PhaseControlTag.className = "button";
+        PhaseControlTag.classList.add("button");
+
         let PhaseControlGetter = document.createElement("button");
         PhaseControlGetter.innerHTML = "Refresh All";
         PhaseControlGetter.onclick = function () {
             apiElems.filter(elem => elem.stateMutability === "view").forEach(elem => elem.callFunction());
         }
+
         PhaseControlHolder.appendChild(PhaseControlTag);
         PhaseControlHolder.appendChild(PhaseControlGetter)
-        //
-        holder.appendChild(APIElemsHolder);
+
         holder.appendChild(PhaseControlHolder);
+        holder.appendChild(APIElemsHolder);
         return holder;
     };
     let callAPI = document.getElementById('callAPI');

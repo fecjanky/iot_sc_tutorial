@@ -9,10 +9,21 @@
   flex-direction: row;
 }
 
+div.user{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
 .button {
-  font: bold 11px Arial;
+  font: bold 12px Arial;
   text-decoration: none;
   background-color: #EEEEEE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 100%;
   color: #333333;
   padding: 2px 6px 2px 6px;
   border-top: 1px solid #CCCCCC;
@@ -45,11 +56,24 @@
   justify-content: center;
 }
 
+div.padded{
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+
+}
+
+div.horizontallyPadded{
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
 .PhaseControl{
   display: flex;
   align-items: center;
   justify-content: center;
-  border-left-style: solid
+  border-right-style: groove;
 }
 
 .PhaseControl-item {
