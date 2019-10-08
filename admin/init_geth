@@ -1,45 +1,46 @@
 #!/bin/sh
 set -e
 WORK_DIR="$(dirname $0)"
-GETH_VERSION="$(cat $WORK_DIR/geth_version)"
-GETH_BIN="$WORK_DIR/$GETH_VERSION/geth"
+ROOT_DIR="$WORK_DIR/../"
+GETH_VERSION="$(cat $ROOT_DIR/geth_version)"
+GETH_BIN="$ROOT_DIR/bin/$GETH_VERSION/geth"
 
-rm -rf "$WORK_DIR/datadir" "$WORK_DIR/datadir_tmp"
+rm -rf "$ROOT_DIR/datadir" "$ROOT_DIR/datadir_tmp"
 
 if [ ! -z $1 ] ; then
-echo $1 > "$WORK_DIR/pwdfile" 
-PWD_ARGS="--password $WORK_DIR/pwdfile"
+echo $1 > "$ROOT_DIR/pwdfile" 
+PWD_ARGS="--password $ROOT_DIR/pwdfile"
 fi
 
-"$GETH_BIN" --nousb --datadir "$WORK_DIR/datadir_tmp" account new $PWD_ARGS
+"$GETH_BIN" --nousb --datadir "$ROOT_DIR/datadir_tmp" account new $PWD_ARGS
 
-rm -f "$WORK_DIR/pwdfile"
+rm -f "$ROOT_DIR/pwdfile"
 
 GENESIS_ACCOUNT="$($GETH_BIN --nousb  --datadir datadir_tmp/ account list 2>/dev/null | sed -r 's/.*\{([a-zA-Z0-9]+)\}.*keystore:\/\/(.*)/\1 \2/g')"
 
 ACCOUNT="$(echo $GENESIS_ACCOUNT | cut -d' ' -f1)"
 KEYFILE="$(echo $GENESIS_ACCOUNT | cut -d' ' -f2)"
 
-mkdir -p "$WORK_DIR/datadir/keystore"
+mkdir -p "$ROOT_DIR/datadir/keystore"
 
 echo $KEYFILE
 
-mv "$KEYFILE" "$WORK_DIR/datadir/keystore/"
+mv "$KEYFILE" "$ROOT_DIR/datadir/keystore/"
 
-rm -rf "$WORK_DIR/datadir_tmp"
+rm -rf "$ROOT_DIR/datadir_tmp"
 
-PREFILL_BALANCE='"888888888888888888888888"'
+PREFILL_BALANCE='"1000000000000000000000000"'
 
 PREFILL="\"$ACCOUNT\" : \{\"balance\": $PREFILL_BALANCE\}"
 
 REPLACEMENT="s/ALLOCATION_ENTRY/$PREFILL/g"
 
-echo $REPLACEMENT > "$WORK_DIR/replacement.script"
+echo $REPLACEMENT > "$ROOT_DIR/replacement.script"
 
-cat "$WORK_DIR/init.json.template" | sed -f "$WORK_DIR/replacement.script" > "$WORK_DIR/init.json"
+cat "$ROOT_DIR/init.json.template" | sed -f "$ROOT_DIR/replacement.script" > "$ROOT_DIR/init.json"
 
-rm -f "$WORK_DIR/replacement.script"
+rm -f "$ROOT_DIR/replacement.script"
 
-$GETH_BIN  --nousb --datadir $WORK_DIR/datadir init $WORK_DIR/init.json 
+$GETH_BIN  --nousb --datadir $ROOT_DIR/datadir init $ROOT_DIR/init.json 
 
 

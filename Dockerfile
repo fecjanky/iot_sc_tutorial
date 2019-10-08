@@ -19,5 +19,5 @@ EXPOSE 443/udp
 EXPOSE 22/udp
 EXPOSE 22/tcp
 
-CMD ["./start.sh"]
+CMD ["./admin/start.sh"]
 

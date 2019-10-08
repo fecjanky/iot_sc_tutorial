@@ -1,10 +1,11 @@
 #!/bin/sh
 WORK_DIR=$(dirname $0)
-GETH_VERSION=$(cat $WORK_DIR/geth_version)
-GETH_BIN=$WORK_DIR/$GETH_VERSION/geth
-mkdir -p $WORK_DIR/datadir 
+ROOT_DIR="$WORK_DIR/../"
+GETH_VERSION=$(cat $ROOT_DIR/geth_version)
+GETH_BIN=$ROOT_DIR/bin/$GETH_VERSION/geth
+mkdir -p $ROOT_DIR/datadir 
 $GETH_BIN  --nousb \
---datadir $WORK_DIR/datadir \
+--datadir $ROOT_DIR/datadir \
 --networkid 2018 \
 --port 30306 \
 --nodiscover \

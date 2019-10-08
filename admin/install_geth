@@ -1,5 +1,10 @@
 #!/bin/sh
-GETH_VERSION=$(cat $(dirname $0)/geth_version)
+WORKDIR=$(dirname $0)
+ROOTDIR="$WORKDIR/../"
+GETH_VERSION=$(cat $ROOTDIR/geth_version)
 wget https://gethstore.blob.core.windows.net/builds/$GETH_VERSION.tar.gz
 tar -xzf $GETH_VERSION.tar.gz
 rm -f $GETH_VERSION.tar.gz
+
+mkdir -p $ROOTDIR/bin
+mv $GETH_VERSION $ROOTDIR/bin/
