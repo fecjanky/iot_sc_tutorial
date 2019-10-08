@@ -14,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "abi-decoder": "^2.2.1",
+    "argparse": "^1.0.10",
     "bcryptjs": "^2.4.3",
     "bson": "^4.0.2",
     "connect-mongo": "^3.0.0",

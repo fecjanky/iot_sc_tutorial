@@ -3,15 +3,47 @@ const https = require('https');
 let http = require('http');
 const app = express()
 let path = require("path");
-const listen_addr = "0.0.0.0";
-const listen_port = 8443;
-const listen_port_http = 8080;
 let bodyParser = require('body-parser');
 let mongoose = require('mongoose');
 let session = require('express-session');
 let MongoStore = require('connect-mongo')(session);
 let fs = require("fs");
 let formidableMiddleware = require('express-formidable');
+let argparse = require('argparse');
+let ArgumentParser = argparse.ArgumentParser;
+
+
+var parser = new ArgumentParser({
+	version: '0.0.1',
+	addHelp: true,
+	description: 'Blockchain tutorial webUI',
+	formatterClass: argparse.ArgumentDefaultsHelpFormatter
+});
+parser.addArgument(
+	['-l', '--listen'],
+	{
+		help: 'listen port for http',
+		defaultValue: 8080
+	}
+);
+parser.addArgument(
+	['-s', '--https'],
+	{
+		help: 'listen port for https',
+		defaultValue: 8443
+	}
+);
+parser.addArgument(
+	['-b', '--bind'],
+	{
+		help: 'bind address',
+		defaultValue: "0.0.0.0"
+	}
+);
+var args = parser.parseArgs();
+const listen_addr = args.bind;
+const listen_port = args.https;
+const listen_port_http = args.listen;
 
 let key = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.key'));
 let cert = fs.readFileSync(path.join(__dirname, '..', 'certs', 'selfsigned.crt'));
