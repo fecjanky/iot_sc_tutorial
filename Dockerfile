@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y wget curl nodejs mongodb build-essentia
 WORKDIR /iot_sc_tutorial/
 COPY ./ ./
 
-RUN npm install node-pre-gyp -g && cd webui && npm install && cd - && ./install_geth && ./init_geth ${GENESIS_PASSWORD} && ./webui/scripts/gencerts.sh && mkdir /var/run/sshd && chmod 0755 /var/run/sshd && useradd -d /iot_sc_tutorial/ --shell /bin/bash --groups sudo tutorial && echo tutorial:${TUTORIAL_PASSWORD} | chpasswd
+RUN npm install node-pre-gyp -g && cd webui && npm install && cd - && ./admin/install_geth && ./admin/init_geth ${GENESIS_PASSWORD} && ./webui/scripts/gencerts.sh && mkdir /var/run/sshd && chmod 0755 /var/run/sshd && useradd -d /iot_sc_tutorial/ --shell /bin/bash --groups sudo tutorial && echo tutorial:${TUTORIAL_PASSWORD} | chpasswd
 
 EXPOSE 80/tcp
 EXPOSE 80/udp
