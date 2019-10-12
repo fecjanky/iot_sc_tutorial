@@ -1,0 +1,6 @@
+#!/bin/sh
+WORK_DIR=$(dirname $0)
+ROOT_DIR="$WORK_DIR/../"
+GETH_VERSION=$(cat $ROOT_DIR/geth_version)
+GETH_BIN=$ROOT_DIR/bin/$GETH_VERSION/geth
+$GETH_BIN "$@" attach "ipc://$(readlink -f $ROOT_DIR/datadir/geth_ipc)"

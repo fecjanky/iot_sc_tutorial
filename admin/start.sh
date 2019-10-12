@@ -12,4 +12,6 @@ fi
 
 $WORK_DIR/start_geth --mine --miner.threads $MINER_THREADS &
 $ROOT_DIR/webui/scripts/start_db.sh &
-node $ROOT_DIR/webui/src/main.js --listen 80 --https 443
+node $ROOT_DIR/webui/src/main.js --listen 80 --https 443 &
+
+wait

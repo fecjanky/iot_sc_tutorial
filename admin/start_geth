@@ -9,8 +9,7 @@ $GETH_BIN  --nousb \
 --datadir $ROOT_DIR/datadir \
 --networkid 2018 \
 --port 30306 \
---nodiscover \
-"$@"
+--nodiscover "$@"
 #--rpc \
 #--rpcapi db,personal,eth,net,web3,debug \
 #--rpccorsdomain="*" \

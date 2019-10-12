@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e 
+
+WORKDIR="$(dirname $0)"
+
+GENESISPWD="$1"
+
+AMOUNT="$2"
+
+if [ -z "$GENESISPWD" ]; then
+ echo "Missing password for genesis account..."
+ exit 1
+fi
+
+if [ -z "$AMOUNT" ]; then
+ AMOUNT=10
+fi
+
+SCRIPT="personal.unlockAccount(eth.accounts[0], \"$GENESISPWD\", 600);eth.accounts.slice(1).map(function(account){eth.sendTransaction({ from: eth.accounts[0], to: account, value: web3.toWei($AMOUNT, \"ether\")})});personal.lockAccount(eth.accounts[0])" 
+"$WORKDIR/geth_attach" --exec "$SCRIPT"

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo "Creating ssh runtime dir and user tutorial with password: ${TUTORIAL_PASSWORD}"
+mkdir -p /var/run/sshd 
+chmod 0755 /var/run/sshd
+useradd -d /iot_sc_tutorial/ --shell /bin/bash --groups sudo tutorial 
+echo tutorial:${TUTORIAL_PASSWORD} | chpasswd
