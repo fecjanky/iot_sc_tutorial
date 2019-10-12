@@ -10,8 +10,18 @@ fi
 # start sshd for accessing geth console
 /usr/sbin/sshd
 
-$WORK_DIR/start_geth --mine --miner.threads $MINER_THREADS &
-$ROOT_DIR/webui/scripts/start_db.sh &
-node $ROOT_DIR/webui/src/main.js --listen 80 --https 443 &
+mkdir -p "$ROOT_DIR/log"
+
+GETH_LOG_FILE="$ROOT_DIR/log/geth.log"
+DB_LOG_FILE="$ROOT_DIR/log/db.log"
+WWW_LOG_FILE="$ROOT_DIR/log/www.log"
+
+savelog -r "$ROOT_DIR/log/" -n -c 7 "$GETH_LOG_FILE"
+savelog -r "$ROOT_DIR/log/" -n -c 7 "$DB_LOG_FILE"
+savelog -r "$ROOT_DIR/log/" -n -c 7 "$WWW_LOG_FILE"
+
+$WORK_DIR/start_geth --mine --miner.threads $MINER_THREADS | tee "$GETH_LOG_FILE" &
+$ROOT_DIR/webui/scripts/start_db.sh | tee "$DB_LOG_FILE" &
+node $ROOT_DIR/webui/src/main.js --listen 80 --https 443 | tee "$WWW_LOG_FILE" &
 
 wait
