@@ -48,29 +48,32 @@ class SCAPI {
 
     getCurrentCtorAPI(user, args) {
         let type = SCAPI.getDefaultType(args);
-        let solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, this.getFilePath(type), this.getKey(user, type));
-        return solc.compile_cached().then(compiled => {
-            let ctor = compiled.abi.filter(elem => elem.type === "constructor")[0];
-            return ctor.inputs;
-        });
+        return this.getKey(user, type)
+            .then(key => SolcWrapper.SolcWrapper(this.mongoDbUrl, this.getFilePath(type), key).compile_cached())
+            .then(compiled => {
+                let ctor = compiled.abi.filter(elem => elem.type === "constructor")[0];
+                return ctor.inputs;
+            });
     }
 
     createContract(user, args) {
         args = SCAPI.getTypeForCreate(args);
         let type = args.type;
         args = SCAPI.getCallOptions(user, args.args);
-        let smartContract = this.create(
-            this.getFilePath(type),
-            this.getKey(user, type),
-            type,
-            user.ethaccount,
-            args.args, user,
-            args.options
-        );
-        return smartContract.deploy().then(result => {
-            console.log(`created contract ${result.contract.contract.options.address}`);
-            return { receipt: result.receipt, address: result.contract.contract.options.address };
-        });
+        return this.getKey(user, type)
+            .then(key =>
+                this.create(
+                    this.getFilePath(type),
+                    key,
+                    type,
+                    user.ethaccount,
+                    args.args, user,
+                    args.options
+                ).deploy())
+            .then(result => {
+                console.log(`created contract ${result.contract.contract.options.address}`);
+                return { receipt: result.receipt, address: result.contract.contract.options.address };
+            });
     }
 
     userData(user, args) {
@@ -87,11 +90,13 @@ class SCAPI {
     };
 
     handleUpload(user, files) {
-        let solc = SolcWrapper.SolcWrapper(this.mongoDbUrl, files.contract.path, `${user.username}.contract`);
-        return solc.compile_cached().then(compiled => {
-            console.log("Uploaded contract is valid");
-            return "compiled";
-        });
+        return this.getKey(user, "FreeStyle")
+            .then(key =>
+                SolcWrapper.SolcWrapper(this.mongoDbUrl, files.contract.path, key).compile_cached())
+            .then(compiled => {
+                console.log("Uploaded contract is valid");
+                return "compiled";
+            });
     }
 
     callContract(user, args) {
@@ -127,7 +132,8 @@ class SCAPI {
     }
 
     getKey(user, type) {
-        return type === "FreeStyle" ? `${user.username}.contract` : null;
+        return TrainingSession(this.mongoDbUrl).currentSession()
+            .then(session => type === "FreeStyle" ? `contract.${user.username}.${session.sessionId}` : null);
     }
 
     create(filename, key, type, owner, params, user, options) {

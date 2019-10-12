@@ -87,13 +87,13 @@ function getJSONErrorLogged(endpoint, statusLocation = null) {
 }
 
 function getUserData() {
-    return getJSONLogged('/scapi?__call=userData').then(res => {
+    return getJSONErrorLogged('/scapi?__call=userData').then(res => {
         document.getElementById("user").innerHTML = res.account;
         return true;
     });
 }
 
-function getDeployedContracts(keys = {}, getFunction = getJSONLogged) {
+function getDeployedContracts(keys = {}, getFunction = getJSONErrorLogged) {
     return getFunction('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
         document.getElementById('deployedContracts').innerHTML = "";
         res.map((address) => addDeployedContract('deployedContracts', address, address));
@@ -118,7 +118,7 @@ function onSessionChanged(args) {
 }
 
 function getAllSessions() {
-    return getJSONLogged('/scapi?__call=getAllSessions').then(res => {
+    return getJSONErrorLogged('/scapi?__call=getAllSessions').then(res => {
         let selector = document.getElementById('sessionSelector');
         selector.options.length = 0;
         selector.options.add(new Option());
@@ -141,7 +141,7 @@ function getSelectedSession() {
 // TODO: Display user data
 
 function getCtorAPI(args) {
-    return getJSONLogged('/scapi?' + encodeToURL({ __call: "getCurrentCtorAPI", ...args })).then(addCtorAPI);
+    return getJSONErrorLogged('/scapi?' + encodeToURL({ __call: "getCurrentCtorAPI", ...args })).then(addCtorAPI);
 }
 
 function addCtorAPI(ctorAPI) {

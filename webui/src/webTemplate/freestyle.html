@@ -29,10 +29,10 @@
             </div>
         </div>
         <div id="main" class="vertical-layout">
-            <div id="contractuploader" class="horizontal-layout padded centered">
-                <div class="button horizontallyPadded"> Upload smart contract:</div>
+            <div id="contractuploader" class="horizontal-layout padded">
+                <div class="button horizontallyPadded centered"> Upload smart contract:</div>
                 <div class="horizontallyPadded"><input id="smartContractFile" type="file" name="smartContract"
-                        onchange="fileChanged(this)"></div>
+                        onchange="fileChanged(this)" class="centered"></div>
                 <div><button type="button" onClick="upload()">Upload</button></div>
                 <div id="upload_status" class="StatusSymbol"></div>
             </div>
@@ -49,12 +49,12 @@
                         <div class="button">TX Options</div>
                         <div id="callOptions" class="horizontal-layout padded">
                             <div class="horizontal-layout">
-                                <div class="button">gas</div>
-                                <input type="text" id="input_gas" name="gas" value="" placeholder="gas">
-                            </div>
-                            <div class="horizontal-layout">
                                 <div class="button">value</div>
                                 <input type="text" id="input_value" name="value" value="" placeholder="value">
+                            </div>
+                            <div class="horizontal-layout">
+                                <div class="button">gas</div>
+                                <input type="text" id="input_gas" name="gas" value="" placeholder="gas">
                             </div>
                             <div class="horizontal-layout">
                                 <div class="button">gasPrice</div>
