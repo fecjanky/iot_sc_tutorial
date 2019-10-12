@@ -2,6 +2,7 @@ let express = require('express');
 let router = express.Router();
 let User = require('../model/user').User;
 let path = require('path');
+let net = require('net');
 let Web3 = require("web3");
 let formidable = require('formidable');
 let formidableMiddleware = require('express-formidable');
@@ -10,8 +11,9 @@ let formidableMiddleware = require('express-formidable');
 // TODO: web3 use secured provider
 // TODO: mogodb use secured connection, and authentication
 // TODO: add express middleware authenticated for fetching the user and enriching request
-
-let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
+const ipc_path = path.join(__dirname, '..', '..', '..', 'datadir', 'geth_ipc');
+console.log(`geth ipc path is ${ipc_path}`);
+let web3 = new Web3(new Web3.providers.IpcProvider(ipc_path, net));
 
 let SmartContractCreator = require('../smartContract/smartContract').Creator(web3, "mongodb://localhost:27018/Solidity");
 

@@ -130,7 +130,8 @@ class SCAPI {
 function main(args) {
     let Web3 = require("web3");
     let CryptoJS = require("crypto-js");
-    let web3 = new Web3(new Web3.providers.WebsocketProvider('ws://localhost:8546'));
+    let net = require('net');
+    let web3 = new Web3(new Web3.providers.IpcProvider(path.join(__dirname, '..', '..', 'datadir', 'geth_ipc', net)));
     let url = "mongodb://localhost:27018/Solidity";
     let creator = new SCAPI(web3, url);
     let testUser = { password: "deadbeef", password2: CryptoJS.AES.encrypt("aa", "deadbeef").toString() }
