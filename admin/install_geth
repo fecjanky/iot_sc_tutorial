@@ -7,4 +7,5 @@ tar -xzf $GETH_VERSION.tar.gz
 rm -f $GETH_VERSION.tar.gz
 
 mkdir -p $ROOTDIR/bin
-mv $GETH_VERSION $ROOTDIR/bin/
+rm -rf $ROOTDIR/bin/$GETH_VERSION
+mv  $GETH_VERSION $ROOTDIR/bin/
