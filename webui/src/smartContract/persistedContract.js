@@ -7,10 +7,11 @@ let path = require('path');
 
 class PersistedContract {
 
-    constructor(web3Provider, mongoUrl, filename, key, type, owner, params, user) {
+    constructor(web3Provider, mongoUrl, filename, key, type, owner, params, user, options = {}) {
         this.web3Provider = web3Provider;
         this.mongoDbUrl = mongoUrl;
         this.type = type;
+        this.options = options;
         if (typeof params !== 'undefined' && params) {
             this.owner = owner;
             this.params = params;
@@ -59,10 +60,10 @@ class PersistedContract {
         return this.solc.compile_cached()
             .then(function (contract) {
                 console.log("compiled");
-                return ContractConstructor(this.web3Provider, contract)(this.params, { from: this.owner, value: this.params.value }, this.user);
+                return ContractConstructor(this.web3Provider, contract)(this.params, this.options, this.user);
             }.bind(this))
             .then(function (result) {
-                this.persist_contract(result.contract.options.address);
+                this.persist_contract(result.contract.contract.options.address);
                 return result;
             }.bind(this));
     }
@@ -73,6 +74,6 @@ class PersistedContract {
 
 }
 
-module.exports.PersistedContract = function (web3Provider, mongoUrl, filename, key, type, owner, params, user) {
-    return new PersistedContract(web3Provider, mongoUrl, filename, key, type, owner, params, user);
+module.exports.PersistedContract = function (web3Provider, mongoUrl, filename, key, type, owner, params, user, options = {}) {
+    return new PersistedContract(web3Provider, mongoUrl, filename, key, type, owner, params, user, options);
 }

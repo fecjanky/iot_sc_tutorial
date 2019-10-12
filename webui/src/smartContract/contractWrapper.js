@@ -59,7 +59,12 @@ class ContractWrapper {
             let transaction = contract.deploy({ data: bytecode, arguments: args });
             return ContractWrapper.enrichOptions(true, web3api, transaction, options).then(enrichedOpts =>
                 ContractWrapper.sendTransaction(true, web3api, transaction, enrichedOpts, user)
-            ).then(receipt => new ContractWrapper(new web3api.eth.Contract(compiled.abi, receipt.contractAddress), compiled.abi, web3api));
+            ).then(receipt => {
+                return {
+                    contract: new ContractWrapper(new web3api.eth.Contract(compiled.abi, receipt.contractAddress), compiled.abi, web3api),
+                    receipt: receipt
+                };
+            });
         };
     }
 
@@ -71,6 +76,10 @@ class ContractWrapper {
                 let args = ContractWrapper.paramsToArgs(elem.inputs, params);
                 let transaction = this.contract.methods[elem.name].apply(undefined, args);
                 let mutable = elem.stateMutability !== "view";
+                // Delete value from non-payable functions
+                if (elem.stateMutability === "nonpayable" || elem.stateMutability === "view") {
+                    delete options["value"];
+                }
                 return ContractWrapper.enrichOptions(mutable, web3api, transaction, options).then(enrichedOpts =>
                     ContractWrapper.sendTransaction(mutable, web3api, transaction, enrichedOpts, user)
                 );

@@ -177,7 +177,7 @@ router.get('/scapi', function (req, res, next) {
               sendJSON(res, { error: error.message });
             });
           } catch (exception) {
-            return next(exception);
+            sendJSON(res, { error: `${exception.stack}` });
           }
         }
       }

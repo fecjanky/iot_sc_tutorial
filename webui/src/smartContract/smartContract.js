@@ -57,10 +57,19 @@ class SCAPI {
 
     createContract(user, args) {
         args = SCAPI.getTypeForCreate(args);
-        let smartContract = this.create(this.getFilePath(args.type), this.getKey(user, args.type), args.type, user.ethaccount, args.args, user);
+        let type = args.type;
+        args = SCAPI.getCallOptions(user, args.args);
+        let smartContract = this.create(
+            this.getFilePath(type),
+            this.getKey(user, type),
+            type,
+            user.ethaccount,
+            args.args, user,
+            args.options
+        );
         return smartContract.deploy().then(result => {
-            console.log(`created contract ${result.contract.options.address}`);
-            return result.contract.options.address;
+            console.log(`created contract ${result.contract.contract.options.address}`);
+            return { receipt: result.receipt, address: result.contract.contract.options.address };
         });
     }
 
@@ -96,13 +105,14 @@ class SCAPI {
     }
 
     static getCallOptions(user, args) {
+        let optArgs = ["gas", "value", "gasPrice"];
         let options = {
-            from: user.ethaccount,
-            gas: args.__opt_gas,
-            value: args.__opt_value
-        };
-        delete args.__opt_gas;
-        delete args.__opt_value;
+            from: user.ethaccount
+        }
+        optArgs.forEach(arg => {
+            options[arg] = args[`__opt_${arg}`];
+            delete args[`__opt_${arg}`];
+        });
         return { options: options, args: args };
     }
 
@@ -120,9 +130,9 @@ class SCAPI {
         return type === "FreeStyle" ? `${user.username}.contract` : null;
     }
 
-    create(filename, key, type, owner, params, user) {
+    create(filename, key, type, owner, params, user, options) {
         // TODO: pass on options
-        return new PersistedContract(this.web3Provider, this.mongoDbUrl, filename, key, type, owner, params, user);
+        return new PersistedContract(this.web3Provider, this.mongoDbUrl, filename, key, type, owner, params, user, options);
     }
 }
 

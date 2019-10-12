@@ -55,7 +55,10 @@ function createLogger(style) {
     return function (result) {
         let log_prefix = `${new Date().toUTCString()} > `;
         let logArea = document.getElementById("logArea");
-        logArea.innerHTML += `<p><pre class="${style}" id="json">${log_prefix}${JSON.stringify(result, bloomFilter, 2)}</pre></p>`;
+        let resultText = JSON.stringify(result, bloomFilter, 2);
+        resultText = resultText.replace(/\\n/g, '<br>');
+        resultText = resultText.replace(/\\"/g, '"');
+        logArea.innerHTML += `<p><pre class="${style}" id="json">${log_prefix}${resultText}</pre></p>`;
         logArea.scrollTop = logArea.scrollHeight;
     };
 }
@@ -69,6 +72,14 @@ function getJSONLogged(endpoint, statusLocation = null) {
             logSuccess(result);
             return Promise.resolve(result);
         })
+        .catch(error => {
+            logError(error);
+            return Promise.reject(error);
+        });
+}
+
+function getJSONErrorLogged(endpoint, statusLocation = null) {
+    return getJSON(endpoint, statusLocation)
         .catch(error => {
             logError(error);
             return Promise.reject(error);
@@ -179,11 +190,11 @@ function setTimersImpl(args) {
     let auction_time_left_interval = 7 * 1000;
     let contractsRefreshInterval = 11 * 1000;
     if (!autoRefreshDeployedContracts) {
-        autoRefreshDeployedContracts = setInterval(function () { getDeployedContracts(args, getJSON) }, contractsRefreshInterval);
+        autoRefreshDeployedContracts = setInterval(function () { getDeployedContracts(args, getJSONErrorLogged) }, contractsRefreshInterval);
     }
     if (!autoRefreshAuctionClose && args.type === "PowerBid") {
         autoRefreshAuctionClose = setInterval(function () {
-            callAPIFunction("auction_time_left", true, getJSON);
+            callAPIFunction("auction_time_left", true, getJSONErrorLogged);
         }, auction_time_left_interval);
     }
 }
@@ -205,7 +216,7 @@ function autoRefreshChanged(checkbox) {
 function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
-
+    document.getElementById("auto-refresh").checked = true;
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
     addDimensionSelector(document.getElementById("input_gasPrice"), Web3.utils.unitMap, AddScaler, "gwei");
     setTimers = function () { setTimersImpl(args); };
@@ -224,9 +235,9 @@ function createContract_impl(args) {
     Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.tagName === "INPUT" && elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
-    getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(address => {
-        addDeployedContract('deployedContracts', address, address);
-        selectContract(address);
+    getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(result => {
+        addDeployedContract('deployedContracts', result.address, result.address);
+        selectContract(result.address);
     });
 }
 
@@ -270,7 +281,7 @@ function selectContract(id) {
     if (selectedContract !== id && newSelection !== null) {
         newSelection.style.backgroundColor = "green";
         selectedContract = id;
-        getAPI(newSelection.innerHTML);
+        getAPI(newSelection.innerHTML, getJSONErrorLogged);
     } else {
         selectedContract = null;
         selectedAPI = null;
@@ -334,14 +345,14 @@ function getCallOptions() {
     Array.from(document.getElementById('callOptions').children).forEach(elem => {
         Array.from(elem.children).filter(elem => elem.tagName === "INPUT").forEach(elem => {
             if (elem.value !== "" && elem.value !== undefined)
-                res[elem.name] = gDecorators.decorate(elem.id, elem.value);
+                res[`__opt_${elem.name}`] = gDecorators.decorate(elem.id, elem.value);
         });
     });
     return res;
 }
 
-function getAPI(contractAddress) {
-    getJSONLogged(`/scapi?__call=getAPI&__address=${contractAddress}`)
+function getAPI(contractAddress, getter = getJSONLogged) {
+    getter(`/scapi?__call=getAPI&__address=${contractAddress}`)
         .then(result => renderAPI(contractAddress, result));
 }
 
@@ -370,7 +381,8 @@ class APIElem {
     }
 
     toURLCall(args) {
-        return `/scapi?__call=callContract&__name=${this.name}&__address=${this.address}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
+        let urlParams = { __call: "callContract", __name: this.name, __address: this.address };
+        return `/scapi?${encodeToURL({ ...urlParams, ...getCallOptions() })}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
     }
     callFunction(noStatus = false, getter = getJSONLogged) {
         getter(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
