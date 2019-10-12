@@ -27,7 +27,7 @@
 # Build & run the docker image
 
 To build the docker image, the password for the prefill account has to be supplied as the `build-arg`, example:
-- `docker build -t iot_sc_tutorial:v0.7 --build-arg GENESIS_PASSWORD=abcd --build-arg TUTORIAL_PASSWOR=abcd123 .` will create the docker image `iot_sc_tutorial:v0.7` with the correspoding passwords set during build time
+- `docker build -t iot_sc_tutorial:v0.7 --build-arg GENESIS_PASSWORD=abcd --build-arg TUTORIAL_PASSWORD=abcd123 .` will create the docker image `iot_sc_tutorial:v0.7` with the correspoding passwords set during build time
 
 - Alternatively the latest image can be pulled by `docker pull fecjanky/iot_sc_tutorial:latest`
 
@@ -35,7 +35,7 @@ To build the docker image, the password for the prefill account has to be suppli
 
 - Use `docker ps` , `docker stop` & `docker start` to manipulate the state of the docker container
 
-- Attach to a running container with `docker exec -it <container ID> bash` then use `./start_geth attach` to attach to the geth node for administration
+- Attach to a running container with `docker exec -it <container ID> bash` then use `./admin/geth_attach` to attach to the geth node for administration
 
 # TODOs
 - create a list of accounts

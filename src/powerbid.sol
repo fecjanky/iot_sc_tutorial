@@ -57,7 +57,8 @@ contract PowerBid {
             now < consumptionStartTime,
             "Auction already ended."
         );
-
+        // Don't allow self bids
+        require(msg.sender != consumer);
         // no free power
         require( _price > 0 );
         // If the price is not better, snd the

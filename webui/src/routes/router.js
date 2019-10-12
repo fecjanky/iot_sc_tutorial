@@ -68,11 +68,13 @@ router.post('/register', function (req, res, next) {
         password: req.body.password,
         ethaccount: addr
       }
-      console.log("registered eth account" + addr)
+      console.log("registered eth account:" + addr)
       User.create(userData, function (error, user) {
         if (error) {
+          console.log(`registration error ${error}`);
           return next(error);
         } else {
+          console.log(`sending registration response for ${addr}`);
           req.session.userId = user._id;
           let registered = `
           <html>
@@ -88,6 +90,7 @@ router.post('/register', function (req, res, next) {
           return res.send(registered);
         }
       });
+      console.log("registration finished");
     }).catch(function (error) {
       let err = new Error('Web3Api error:' + error);
       err.status = 400;
