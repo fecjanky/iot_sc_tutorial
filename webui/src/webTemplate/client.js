@@ -172,22 +172,47 @@ class PreloadedImages {
 
 let images = new PreloadedImages();
 
+let autoRefreshDeployedContracts = null;
+let autoRefreshAuctionClose = null;
+
+function setTimersImpl(args) {
+    let auction_time_left_interval = 7 * 1000;
+    let contractsRefreshInterval = 11 * 1000;
+    if (!autoRefreshDeployedContracts) {
+        autoRefreshDeployedContracts = setInterval(function () { getDeployedContracts(args, getJSON) }, contractsRefreshInterval);
+    }
+    if (!autoRefreshAuctionClose && args.type === "PowerBid") {
+        autoRefreshAuctionClose = setInterval(function () {
+            callAPIFunction("auction_time_left", true, getJSON);
+        }, auction_time_left_interval);
+    }
+}
+
+function cancelTimers() {
+    clearInterval(autoRefreshDeployedContracts);
+    autoRefreshDeployedContracts = null;
+    clearInterval(autoRefreshAuctionClose);
+    autoRefreshAuctionClose = null;
+}
+
+let setTimers = null;
+
+function autoRefreshChanged(checkbox) {
+    if (checkbox.checked && setTimers) setTimers();
+    else cancelTimers();
+}
+
 function onLoad(args = {}) {
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
-    let contractsRefreshInterval = 11 * 1000;
-    setInterval(function () { getDeployedContracts(args, getJSON) }, contractsRefreshInterval);
 
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
     addDimensionSelector(document.getElementById("input_gasPrice"), Web3.utils.unitMap, AddScaler, "gwei");
-
+    setTimers = function () { setTimersImpl(args); };
+    setTimers();
     if (args.type === "PowerBid") {
         setUpDynamicDecorators = setUpDynamicDecoratorsForPowerBid;
         renderAPI = powerBidRenderer;
-        let auction_time_left_interval = 7 * 1000;
-        setInterval(function () {
-            callAPIFunction("auction_time_left", true, getJSON);
-        }, auction_time_left_interval);
     }
 }
 
@@ -358,13 +383,13 @@ class APIElem {
     toHTML() {
         let inputs = this.inputs.map(elem => `<div><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
         if (inputs.length === 0) {
-            inputs = "()";
+            inputs = "<div class='centered'>()</div>";
         }
         let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
         if (outputs.length === 0) {
-            outputs = "()";
+            outputs = "<div class='centered'>()</div>";
         }
-        return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button></div><div id="${this.name}_status" class="StatusSymbol"></div>` + inputs + "<div> => </div>" + outputs + "</div>";
+        return `<div class="horizontal-layout" id="${this.name}"><div><button type="button" id="${this.name}_button" onClick="callAPIFunction(this.id)"> ${this.name}</button></div><div id="${this.name}_status" class="StatusSymbol"></div>` + inputs + "<div class='centered'> => </div>" + outputs + "</div>";
     };
 
     placeholder() {

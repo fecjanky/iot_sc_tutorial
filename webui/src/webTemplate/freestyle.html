@@ -20,9 +20,12 @@
     <div class="vertical-layout">
         <div class="horizontal-layout padded">
             <div class="button">User account</div>
-            <div id="user" class="user"> </div>
+            <div id="user" class="user centered"> </div>
             <div class="horizontallyPadded">
                 <select id="sessionSelector" onchange="onSessionChanged({type:'FreeStyle'})"></select>
+            </div>
+            <div class="horizontallyPadded centered">
+                <input type="checkbox" name="auto-refresh" onchange="autoRefreshChanged(this) " checked>Auto-refresh<br>
             </div>
         </div>
         <div id="main" class="vertical-layout">

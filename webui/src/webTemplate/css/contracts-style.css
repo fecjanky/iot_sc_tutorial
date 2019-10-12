@@ -9,10 +9,13 @@
   flex-direction: row;
 }
 
-div.user{
+.centered{
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+div.user{
 }
 
 
