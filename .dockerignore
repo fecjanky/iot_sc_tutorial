@@ -17,3 +17,4 @@ web3.js/
 webui/scripts/.gitignore
 webui/.gitignore
 bin/
+log/

@@ -11,7 +11,10 @@ let fs = require("fs");
 let formidableMiddleware = require('express-formidable');
 let argparse = require('argparse');
 let ArgumentParser = argparse.ArgumentParser;
-
+let morgan = require('morgan');
+let console_stamp = require('console-stamp');
+const log_date_format = 'mm-dd|HH:MM:ss.l';
+console_stamp(console, log_date_format);
 
 var parser = new ArgumentParser({
 	version: '0.0.1',
@@ -68,6 +71,12 @@ app.use(session({
 	})
 }));
 
+morgan.format('mydate', function () {
+	var df = require('dateformat');
+	return df(new Date(), log_date_format);
+});
+app.use(morgan('[:mydate] :method :url :status :res[content-length] - :remote-addr - :response-time ms'));
+
 // parse incoming requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -100,9 +109,14 @@ server.listen(listen_port, listen_addr, () => console.log(`Example app listening
 
 // Redirect from http port 80 to https
 http.createServer(function (req, res) {
-	let host = req.headers['host'].split(':')[0];
-	res.writeHead(301, { "Location": `https://${host}:${listen_port}${req.url}` });
-	res.end();
+	let req_host = req.headers['host'];
+	if (req_host !== undefined) {
+		let hostname = req_host.split(':')[0];
+		res.writeHead(301, { "Location": `https://${hostname}:${listen_port}${req.url}` });
+		res.end();
+	} else {
+		next(new Error('Error while redirecting to https, please use https protocol'));
+	}
 }).listen(listen_port_http, listen_addr, () => console.log(`HTTP server for redirect listening on http://${listen_addr}:${listen_port_http}!`));
 
 
