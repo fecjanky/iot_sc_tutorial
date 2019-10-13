@@ -12,12 +12,7 @@ COPY ./ ./
 
 RUN npm install node-pre-gyp -g && cd webui && npm install && cd - && ./admin/install_geth && ./admin/init_geth ${GENESIS_PASSWORD} && ./webui/scripts/gencerts.sh && ./admin/create_ssh
 
-EXPOSE 80/tcp
-EXPOSE 80/udp
-EXPOSE 443/tcp
-EXPOSE 443/udp
-EXPOSE 22/udp
-EXPOSE 22/tcp
+EXPOSE 22/udp 22/tcp 80/tcp 80/udp 443/tcp 443/udp
 
 CMD ["./admin/start.sh"]
 
