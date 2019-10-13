@@ -116,8 +116,8 @@ http.createServer(function (req, res) {
 		res.end();
 	} else {
 		console.error(`Error while redirecting to https:${JSON.stringify(req.headers)}`);
-		res.status = 500;
-		res.send('Error while redirecting to https, please use https protocol explicitly');
+		res.writeHead(500, { "Warning": 'Error while redirecting to https, please use https protocol explicitly' });
+		res.end();
 	}
 }).listen(listen_port_http, listen_addr, () => console.log(`HTTP server for redirect listening on http://${listen_addr}:${listen_port_http}!`));
 
