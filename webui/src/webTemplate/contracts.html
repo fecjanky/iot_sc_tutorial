@@ -19,8 +19,15 @@
     <!-- main -->
     <div class="vertical-layout">
         <div class="horizontal-layout padded">
+            <div class="button">Username</div>
+            <div id="username" class="user centered horizontallyPadded"> </div>
             <div class="button">User account</div>
-            <div id="user" class="user centered"> </div>
+            <div id="account" class="user centered horizontallyPadded"> </div>
+            <div class="horizontal-layout">
+                <button onclick="getBalance()">Balance</button>
+                <div id="balance_status" class="StatusSymbol"></div>
+                <div id="balance" class="user centered horizontallyPadded"> </div>
+            </div>
             <div class="horizontallyPadded">
                 <select id="sessionSelector" onchange="onSessionChanged()"></select>
             </div>

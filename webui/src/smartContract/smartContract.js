@@ -29,7 +29,7 @@ class SCAPI {
             db.close();
             return [... new Set(result.filter(elem => {
                 return elem.type === SCAPI.getDefaultType(args);
-            }).map((obj) => obj["address"]))];
+            }).map((obj) => { return { address: obj["address"], owner: obj["owner"] }; }))];
         });
     }
 
@@ -72,13 +72,18 @@ class SCAPI {
                 ).deploy())
             .then(result => {
                 console.log(`created contract ${result.contract.contract.options.address}`);
-                return { receipt: result.receipt, address: result.contract.contract.options.address };
+                return { receipt: result.receipt, address: result.contract.contract.options.address, owner: user.ethaccount };
             });
     }
 
     userData(user, args) {
-        return Promise.resolve({ account: user.ethaccount });
+        return Promise.resolve({ username: user.username, account: user.ethaccount });
     };
+
+    getBalance(user, args) {
+        return this.web3Provider.eth.getBalance(user.ethaccount);
+    };
+
 
     getAllSessions(user, args) {
         return TrainingSession(this.mongoDbUrl).getAllSessions();

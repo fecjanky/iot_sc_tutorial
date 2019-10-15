@@ -34,7 +34,7 @@ class PersistedContract {
                 console.log("file must be compiled before persisting contract...");
             } else {
                 let collection = conn.db("Solidity").collection("contracts");
-                let contract = { address: ethAddress, contract: file, sessionId: currentSession.sessionId.toString(), type: this.type };
+                let contract = { address: ethAddress, contract: file, sessionId: currentSession.sessionId.toString(), type: this.type, owner: this.owner };
                 collection.insertOne(contract, (err, res) => {
                     if (err) console.log(err);
                     else console.log("succefully persisted contract with address:" + ethAddress);

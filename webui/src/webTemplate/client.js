@@ -86,17 +86,33 @@ function getJSONErrorLogged(endpoint, statusLocation = null) {
         });
 }
 
+function getBalance() {
+    return getJSONErrorLogged('/scapi?__call=getBalance', document.getElementById("balance_status")).then(res => {
+        let balanceNode = document.getElementById("balance");
+        balanceNode.innerHTML = gDecorators.decorate(balanceNode.id, res);
+    });
+}
+
+
+function getUser() {
+    return document.getElementById("account").innerHTML;
+}
+
 function getUserData() {
     return getJSONErrorLogged('/scapi?__call=userData').then(res => {
-        document.getElementById("user").innerHTML = res.account;
+        Object.keys(res).map(key => document.getElementById(key).innerHTML = res[key]);
         return true;
     });
 }
 
 function getDeployedContracts(keys = {}, getFunction = getJSONErrorLogged) {
     return getFunction('/scapi?' + encodeToURL({ __call: "getDeployedContracts", ...getSelectedSession(), ...keys })).then(res => {
-        document.getElementById('deployedContracts').innerHTML = "";
-        res.map((address) => addDeployedContract('deployedContracts', address, address));
+        let currentDeployed = Object.fromEntries(Array.from(document.getElementById('deployedContracts').childNodes).map(elem => [elem.id, true]));
+        res.map((contract) => {
+            if (!currentDeployed.hasOwnProperty(contract.address)) {
+                addDeployedContract('deployedContracts', contract);
+            }
+        });
         refreshSelection();
         return true;
     });
@@ -161,10 +177,10 @@ function setUpDynamicDecoratorsForPowerBid() {
     let candidates = { bid_in__price: "finney" };
     Object.keys(candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddScaler, candidates[id]));
 
-    let timeBasedOutputs = ["consumptionStartTime_out_", "consumptionEndTime_out_"];
+    let timeBasedOutputs = ["consumptionStartTime_out_0", "consumptionEndTime_out_0"];
     timeBasedOutputs.forEach(elem => gDecorators.addTimeDecorator(document.getElementById(elem)));
 
-    let descaler_candidates = { maxPrice_out_: "finney", bestPrice_out_: "finney" };
+    let descaler_candidates = { maxPrice_out_0: "finney", bestPrice_out_0: "finney" };
 
     Object.keys(descaler_candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddDeScaler, descaler_candidates[id]));
 }
@@ -219,6 +235,7 @@ function onLoad(args = {}) {
     document.getElementById("auto-refresh").checked = true;
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
     addDimensionSelector(document.getElementById("input_gasPrice"), Web3.utils.unitMap, AddScaler, "gwei");
+    addDimensionSelector(document.getElementById("balance"), Web3.utils.unitMap, AddDeScaler, "ether");
     setTimers = function () { setTimersImpl(args); };
     setTimers();
     if (args.type === "PowerBid") {
@@ -236,7 +253,7 @@ function createContract_impl(args) {
     let callArgs = { ...args, ...getCallOptions() };
 
     getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(result => {
-        addDeployedContract('deployedContracts', result.address, result.address);
+        addDeployedContract('deployedContracts', result);
         selectContract(result.address);
     });
 }
@@ -255,8 +272,8 @@ function createFreeStyleContract() {
     createContract_impl(args);
 }
 
-function addDeployedContract(parentId, id, content) {
-    document.getElementById(parentId).innerHTML += `<div id=${id} class="button" onClick="selectContract(this.id)">${content}</div>`;
+function addDeployedContract(parentId, contract) {
+    document.getElementById(parentId).innerHTML += `<div id=${contract.address} class="button${contract.owner === getUser() ? " myContract" : ""}" onClick="selectContract(this.id)">${contract.address}</div>`;
 }
 
 var selectedContract = null
@@ -266,7 +283,7 @@ function refreshSelection() {
     if (selectedContract !== null) {
         let newSelection = document.getElementById(selectedContract);
         if (newSelection !== null) {
-            newSelection.style.backgroundColor = "green";
+            newSelection.classList.add("selectedContract");
         }
     }
 }
@@ -275,11 +292,11 @@ function selectContract(id) {
     // TODO change css style on-click instead of manually coloring
     let selection = document.getElementById(selectedContract);
     if (selection !== null) {
-        selection.style.backgroundColor = "initial";
+        selection.classList.remove("selectedContract");
     }
     let newSelection = document.getElementById(id);
     if (selectedContract !== id && newSelection !== null) {
-        newSelection.style.backgroundColor = "green";
+        newSelection.classList.add("selectedContract");
         selectedContract = id;
         getAPI(newSelection.innerHTML, getJSONErrorLogged);
     } else {
@@ -320,7 +337,8 @@ class Decorators {
 
 var gDecorators = new Decorators();
 
-function addDimensionSelector(subject, values, decoratorType, defaultSelection = null) {
+function addDimensionSelector(subject, values, decoratorType, defaultSelection = null, autoNormalize = false) {
+    if (subject == null) return;
     let selector = document.createElement("select");
     selector.id = `${subject.id}_selector`;
     let defaultIndex = 0;
@@ -361,12 +379,48 @@ function clearAPI() {
     clearAllChildren(callApiNode);
 }
 
+
+class MonitoredContracts {
+    constructor() {
+        this.monitored = [];
+    }
+    add(contract) {
+        let contractObj = document.getElementById(contract);
+        if (contractObj !== null) {
+            contractObj.classList.add("monitoredContract");
+            this.monitored.push(contract)
+        }
+
+    }
+
+    refresh() {
+        let deployedContracts = Object.fromEntries(Array.from(document.getElementById("deployedContracts").childNodes).filter(elem => elem.id !== undefined).map(elem => [elem.id, true]));
+        console.log(deployedContracts);
+        let toRefresh = this.monitored.filter(elem => deployedContracts.hasOwnProperty(elem));
+
+        console.log(toRefresh);
+    }
+}
+
+let monitoredBids = new MonitoredContracts();
+
+let onAPICallSuccess = {
+    "bid": function (result) {
+        monitoredBids.add(result.contract);
+    }
+}
+
 function callAPIFunction(id, noStatus = false, getter = getJSONLogged) {
     let api_id = id.replace("_button", "");
     if (selectedAPI !== null) {
         let apiElem = selectedAPI.find(elem => elem.name === api_id);
         if (apiElem !== undefined) {
-            apiElem.callFunction(noStatus, getter);
+            apiElem.callFunction(noStatus, getter).then((result) => {
+                let succCallback = onAPICallSuccess[api_id];
+                if (succCallback !== undefined) {
+                    succCallback(result);
+                }
+            });
         }
     }
 }
@@ -385,11 +439,15 @@ class APIElem {
         return `/scapi?${encodeToURL({ ...urlParams, ...getCallOptions() })}` + this.inputs.map(elem => `&${elem.name}=${args[elem.name]}`);
     }
     callFunction(noStatus = false, getter = getJSONLogged) {
-        getter(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
+        let currentContract = selectedContract;
+        return getter(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
             // TODO:handle array return type
-            this.getAllOutputs().map(output => {
-                output.value = gDecorators.decorate(output.id, result);
-            });
+            if (currentContract == selectedContract) {
+                this.getAllOutputs().map((output, index) => {
+                    output.value = gDecorators.decorate(output.id, this.outputs.length > 1 ? result[index] : result);
+                });
+            }
+            return { contract: currentContract, result: result };
         }.bind(this));
     }
     toHTML() {
@@ -397,7 +455,7 @@ class APIElem {
         if (inputs.length === 0) {
             inputs = "<div class='centered'>()</div>";
         }
-        let outputs = this.outputs.map(elem => `<div><input type="text" id="${this.name}_out_${elem.name}" value=""></div>`).join('');
+        let outputs = this.outputs.map((elem, index) => `<div><input type="text" id="${this.name}_out_${index}" value=""></div>`).join('');
         if (outputs.length === 0) {
             outputs = "<div class='centered'>()</div>";
         }
@@ -413,7 +471,7 @@ class APIElem {
         return res;
     }
     getAllOutputs() {
-        return this.outputs.map(elem => document.getElementById(`${this.name}_out_${elem.name}`));
+        return this.outputs.map((elem, index) => document.getElementById(`${this.name}_out_${index}`));
     }
 }
 

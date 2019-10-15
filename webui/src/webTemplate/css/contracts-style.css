@@ -104,3 +104,21 @@ pre {
   word-wrap: break-word;       /* Internet Explorer 5.5+ */
  }
 
+.selectedContract{
+  background-color: darkgreen !important;
+}
+
+.myContract {
+  background-color: lightgreen;
+}
+
+.myExpiredContract{
+  background-color: blueviolet;
+}
+
+.monitoredContract{
+  background-color: yellow;
+}
+.expiredContract{
+  background-color: brown;
+}

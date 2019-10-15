@@ -138,6 +138,10 @@ contract PowerBid {
         emit AuctionEnded(bestSupplier, bestPrice);
     }
     
+    function auction_status() public view returns (uint,address){
+        return (auction_time_left(),bestSupplier);
+    }
+
     function auction_time_left() public view returns (uint) {
         if(now > consumptionStartTime)return 0;
         else return consumptionStartTime - now;

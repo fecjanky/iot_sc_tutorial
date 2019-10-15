@@ -82,7 +82,7 @@ router.post('/register', function (req, res, next) {
             <meta http-equiv="refresh" content="3;url=/contracts" />
            </head>
            <body>
-            <div id="user">${addr}</div>
+            <div id="account">${addr}</div>
             <h1>Successfully registered,Redirecting in 3 seconds...</h1>
            </body>
           </html>
