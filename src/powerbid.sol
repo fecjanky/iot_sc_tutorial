@@ -151,7 +151,7 @@ contract PowerBid {
     {
         //1. Conditions
         require(consumer == msg.sender,"Only consumer can consume the negotiated power");
-        require(auctionEnded, "Auciton has not ended yet");
+        require(auctionEnded, "Auction has not ended yet");
         require(!powerConsumed, "power already consumed");
 
         //2. Effects
