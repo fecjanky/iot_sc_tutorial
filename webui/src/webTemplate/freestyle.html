@@ -28,7 +28,7 @@
                 <div id="balance_status" class="StatusSymbol"></div>
                 <div id="balance" class="user centered horizontallyPadded"> </div>
             </div>
-            <div class="horizontallyPadded">
+            <div class="horizontallyPadded centered">
                 <select id="sessionSelector" onchange="onSessionChanged({type:'FreeStyle'})"></select>
             </div>
             <div class="horizontallyPadded centered">
@@ -38,7 +38,7 @@
         <div id="main" class="vertical-layout">
             <div id="contractuploader" class="horizontal-layout padded">
                 <div class="button horizontallyPadded centered"> Upload smart contract:</div>
-                <div class="horizontallyPadded"><input id="smartContractFile" type="file" name="smartContract"
+                <div class="horizontallyPadded centered"><input id="smartContractFile" type="file" name="smartContract"
                         onchange="fileChanged(this)" class="centered"></div>
                 <div><button type="button" onClick="upload()">Upload</button></div>
                 <div id="upload_status" class="StatusSymbol"></div>

@@ -182,8 +182,8 @@ function main(args) {
         .then((result) => {
             console.log("Contract at:" + result.contract.options.address);
             // result.bid({ _price: 9 }, { from: "0x65fb3AC32da1E2Bd43818Ed3A2C56EFF45958121" }).then(console.log);
-            return result.auction_time_left().then((result) => console.log("Auction time_left:" + result));
-            // return result.contract.methods.auction_time_left().call({}).then((result) => console.log("Auction time_left:" + result));
+            return result.auctionTimeLeft().then((result) => console.log("Auction time_left:" + result));
+            // return result.contract.methods.auctionTimeLeft().call({}).then((result) => console.log("Auction time_left:" + result));
         }, console.log);
 
     // creator.getDeployedContracts().then(console.log);
