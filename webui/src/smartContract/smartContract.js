@@ -110,6 +110,7 @@ class SCAPI {
         delete args.__address;
         delete args.__name;
         // TODO: parse all options
+        if (name === undefined || address === undefined) return Promise.reject(new Error("missing function name or contract address"));
         let opts = SCAPI.getCallOptions(user, args);
         return this.create(null, null, null, address).deploy().then(result => result[name](opts.args, opts.options, user));
     }

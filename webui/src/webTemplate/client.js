@@ -201,10 +201,12 @@ let images = new PreloadedImages();
 
 let autoRefreshDeployedContracts = null;
 let autoRefreshAuctionClose = null;
+let autoRefreshAuction = null;
 
 function setTimersImpl(args) {
     let auction_time_left_interval = 7 * 1000;
     let contractsRefreshInterval = 11 * 1000;
+    let auctionRefreshInterval = 15 * 1000;
     if (!autoRefreshDeployedContracts) {
         autoRefreshDeployedContracts = setInterval(function () { getDeployedContracts(args, getJSONErrorLogged) }, contractsRefreshInterval);
     }
@@ -213,6 +215,11 @@ function setTimersImpl(args) {
             callAPIFunction("auction_time_left", true, getJSONErrorLogged);
         }, auction_time_left_interval);
     }
+    if (!autoRefreshAuction && args.type === "PowerBid") {
+        autoRefreshAuction = setInterval(function () {
+            monitoredBids.refresh();
+        }, auctionRefreshInterval);
+    }
 }
 
 function cancelTimers() {
@@ -220,6 +227,8 @@ function cancelTimers() {
     autoRefreshDeployedContracts = null;
     clearInterval(autoRefreshAuctionClose);
     autoRefreshAuctionClose = null;
+    clearInterval(autoRefreshAuction);
+    autoRefreshAuction = null;
 }
 
 let setTimers = null;
@@ -252,9 +261,10 @@ function createContract_impl(args) {
     Array.from(document.getElementById('callConstructorArgs').children).forEach(elem => { if (elem.tagName === "INPUT" && elem.value !== "") args[elem.name] = elem.value; });
     let callArgs = { ...args, ...getCallOptions() };
 
-    getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(result => {
+    return getJSONLogged('/scapi?' + encodeToURL(callArgs), document.getElementById("callConstructor_status")).then(result => {
         addDeployedContract('deployedContracts', result);
         selectContract(result.address);
+        return result;
     });
 }
 
@@ -262,7 +272,9 @@ function createContract() {
     let args = {
         __call: "createContract"
     };
-    createContract_impl(args);
+    createContract_impl(args).then(result => {
+        monitoredBids.add(result.address, { owner: true });
+    });
 }
 function createFreeStyleContract() {
     let args = {
@@ -283,7 +295,7 @@ function refreshSelection() {
     if (selectedContract !== null) {
         let newSelection = document.getElementById(selectedContract);
         if (newSelection !== null) {
-            newSelection.classList.add("selectedContract");
+            newSelection.classList.add("selected");
         }
     }
 }
@@ -292,11 +304,11 @@ function selectContract(id) {
     // TODO change css style on-click instead of manually coloring
     let selection = document.getElementById(selectedContract);
     if (selection !== null) {
-        selection.classList.remove("selectedContract");
+        selection.classList.remove("selected");
     }
     let newSelection = document.getElementById(id);
     if (selectedContract !== id && newSelection !== null) {
-        newSelection.classList.add("selectedContract");
+        newSelection.classList.add("selected");
         selectedContract = id;
         getAPI(newSelection.innerHTML, getJSONErrorLogged);
     } else {
@@ -379,18 +391,23 @@ function clearAPI() {
     clearAllChildren(callApiNode);
 }
 
+function replaceContractStyle(contract, newStyle) {
+    let c = document.getElementById(contract);
+    let toRemove = Array.from(c.classList).filter(elem => elem.includes("Contract"));
+    toRemove.map(r => c.classList.remove(r));
+    c.classList.add(newStyle);
+}
 
 class MonitoredContracts {
     constructor() {
         this.monitored = [];
     }
-    add(contract) {
+    add(contract, opts = {}) {
         let contractObj = document.getElementById(contract);
-        if (contractObj !== null) {
-            contractObj.classList.add("monitoredContract");
-            this.monitored.push(contract)
+        if (contractObj !== null && opts.owner !== true) {
+            replaceContractStyle(contractObj.id, "monitoredContract");
         }
-
+        this.monitored.push(contract)
     }
 
     refresh() {
@@ -398,7 +415,30 @@ class MonitoredContracts {
         console.log(deployedContracts);
         let toRefresh = this.monitored.filter(elem => deployedContracts.hasOwnProperty(elem));
 
-        console.log(toRefresh);
+        Promise.all(toRefresh.map(contract => Promise.all(
+            [Promise.resolve(contract), getJSONErrorLogged(`/scapi?__call=callContract&__name=auction_status&__address=${contract}`)])))
+            .then(arrResults => {
+                arrResults.map(elem => {
+                    let [contract, arr] = elem;
+                    let time_left = Number(arr["0"]);
+                    let bestSupplier = arr["1"];
+                    let owner = arr["2"];
+                    let bestPrice = arr["3"];
+                    if (time_left <= 0 && (owner !== getUser() && bestSupplier === getUser())) {
+                        replaceContractStyle(contract, "wonContract");
+                        this.monitored = this.monitored.filter(c => c !== contract);
+                    } else if (time_left <= 0 && owner !== getUser() && bestSupplier !== getUser()) {
+                        replaceContractStyle(contract, "lostContract");
+                        this.monitored = this.monitored.filter(c => c !== contract);
+                    } else if (time_left > 0 && owner !== getUser() && bestSupplier !== getUser()) {
+                        replaceContractStyle(contract, "aboutToLoseContract");
+                    } else if (time_left <= 0 && owner === getUser()) {
+                        replaceContractStyle(contract, "myExpiredContract");
+                        this.monitored = this.monitored.filter(c => c !== contract);
+                    }
+                });
+                console.log(arrResults);
+            });
     }
 }
 

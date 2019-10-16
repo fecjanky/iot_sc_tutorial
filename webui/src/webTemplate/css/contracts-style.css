@@ -104,8 +104,12 @@ pre {
   word-wrap: break-word;       /* Internet Explorer 5.5+ */
  }
 
-.selectedContract{
-  background-color: darkgreen !important;
+.selected{
+  border-style: solid !important;
+  border-color : darkcyan;
+  border-width: 2px !important;
+  font-weight: normal !important;
+  font-style: italic;
 }
 
 .myContract {
@@ -113,12 +117,24 @@ pre {
 }
 
 .myExpiredContract{
-  background-color: blueviolet;
+  background-color: rgb(116, 143, 201);
+  color:white;
 }
 
 .monitoredContract{
   background-color: yellow;
 }
-.expiredContract{
-  background-color: brown;
+
+.aboutToLoseContract{
+  background-color: darksalmon;
+}
+
+.lostContract{
+  background-color: darkred;
+  color: wheat;
+}
+
+.wonContract{
+  background-color: darkgreen;
+  color: wheat;
 }
