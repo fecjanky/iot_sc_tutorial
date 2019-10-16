@@ -29,10 +29,19 @@ mkdir -p "$ROOT_DIR/log"
 GETH_LOG_FILE="$ROOT_DIR/log/geth.log"
 DB_LOG_FILE="$ROOT_DIR/log/db.log"
 WWW_LOG_FILE="$ROOT_DIR/log/www.log"
+STARTUP_LOG_FILE="$ROOT_DIR/log/start.log"
 
 savelog -n -c 7 "$GETH_LOG_FILE"
 savelog -n -c 7 "$DB_LOG_FILE"
 savelog -n -c 7 "$WWW_LOG_FILE"
+savelog -n -c 7 "$STARTUP_LOG_FILE"
+
+echo "starting...."  >> "$STARTUP_LOG_FILE"
+echo "MINER_THREADS=$MINER_THREADS" >> "$STARTUP_LOG_FILE"
+echo "NODEJS=$NODEJS" >> "$STARTUP_LOG_FILE"
+echo "HTTP_PORT=$HTTP_PORT" >> "$STARTUP_LOG_FILE"
+echo "HTTPS_PORT=$HTTPS_PORT" >> "$STARTUP_LOG_FILE"
+echo "NO_SSHD=$NO_SSHD" >> "$STARTUP_LOG_FILE"
 
 $WORK_DIR/start_geth --mine --miner.threads $MINER_THREADS 2>&1 | tee "$GETH_LOG_FILE" &
 $ROOT_DIR/webui/scripts/start_db.sh 2>&1 | tee "$DB_LOG_FILE" &
