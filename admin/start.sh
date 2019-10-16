@@ -7,7 +7,7 @@ if [ -z "$MINER_THREADS" ] ; then
 MINER_THREADS=1
 fi
 
-if [ -z "NODEJS" ] ; then
+if [ -z "$NODEJS" ] ; then
 NODEJS=node
 fi
 
