@@ -43,7 +43,7 @@ echo "HTTP_PORT=$HTTP_PORT" >> "$STARTUP_LOG_FILE"
 echo "HTTPS_PORT=$HTTPS_PORT" >> "$STARTUP_LOG_FILE"
 echo "NO_SSHD=$NO_SSHD" >> "$STARTUP_LOG_FILE"
 
-$WORK_DIR/start_geth js --mine --miner.threads=$MINER_THREADS --preload $WORK_DIR/on_demand_mining.js "$@"  2>&1 | tee "$GETH_LOG_FILE" &
+$WORK_DIR/start_geth --mine --miner.threads $MINER_THREADS  2>&1 | tee "$GETH_LOG_FILE" &
 $ROOT_DIR/webui/scripts/start_db.sh 2>&1 | tee "$DB_LOG_FILE" &
 $NODEJS $ROOT_DIR/webui/src/main.js --listen $HTTP_PORT --https $HTTPS_PORT 2>&1 | tee "$WWW_LOG_FILE" &
 
