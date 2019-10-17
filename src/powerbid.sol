@@ -1,10 +1,21 @@
 pragma solidity >=0.4.22 <0.7.0;
 
 contract PowerBid {
+    
+    enum Phase {
+        AUCTION,
+        CONSUMPTION,
+        FINISHED,
+        GAIN_WITHDRAWN, 
+        PRICE_WITHDRAWN,
+        COMPLETED,
+        VIOLATED,
+        VIOLATION_RESOLVED}
     // Parameters of the auction. Times are either
     // absolute unix timestamps (seconds since 1970-01-01)
     // or time periods in seconds.
     address payable public consumer;
+    uint public auctionStartTime;
     uint public consumptionStartTime; // t0
     uint public consumptionEndTime;  // t1
     uint public requiredNRG; // in watts hour 
@@ -13,11 +24,9 @@ contract PowerBid {
     // Current state of the auction.
     address payable public bestSupplier;
     uint public bestPrice;
-
-    // Set to true at the end, disallows any change.
-    // By default initialized to `false`.
-    bool gain_withdrawn;
-    bool price_withdrawn;
+    Phase public state;
+    uint public auctionEndTime;
+    uint public consumptionTime;
 
     // Events that will be emitted on changes.
     event BestPriceUpdated(address bidder, uint amount);
@@ -35,13 +44,16 @@ contract PowerBid {
     ) public payable {
         require(requiredEnergy > 0, "required energy must be greater than 0 wh");
         require(msg.value > 0 ,"max price must be greater than 0");
+        require(auctionPeriodSeconds > 0, "auction period must be greater than 0");
+        require(consumptionPeriodSeconds > 0, "consumption period must be greater than 0");
         consumer = msg.sender;
         maxPrice = msg.value;
         requiredNRG = requiredEnergy;
+        auctionStartTime = now;
         consumptionStartTime = now + auctionPeriodSeconds;
         consumptionEndTime = consumptionStartTime + consumptionPeriodSeconds;
-        gain_withdrawn = false;
-        price_withdrawn = false;
+        state = Phase.AUCTION;
+        auctionEndTime = consumptionTime = 0;
     }
 
     /// Bid on the auction 
@@ -53,10 +65,7 @@ contract PowerBid {
 
         // Revert the call if the bidding
         // period is over.
-        require(
-            now < consumptionStartTime,
-            "Auction already ended."
-        );
+        require(state == Phase.AUCTION, "Auction already ended.");
         // Don't allow self bids
         require(msg.sender != consumer);
         // no free power
@@ -74,55 +83,77 @@ contract PowerBid {
     }
 
 
+    function auctionEnd() public{
+        require(state == Phase.AUCTION);
+        if(msg.sender == consumer){
+            auctionEndTime = now;
+            state = auctionEndTime >= consumptionStartTime ? Phase.CONSUMPTION : Phase.VIOLATED;
+        }else if(now >= consumptionStartTime){
+            auctionEndTime = now;
+            state = Phase.CONSUMPTION;
+        }
+    }
+
+    function isValidWithdrawGain() private view returns(bool){
+        return  state != Phase.GAIN_WITHDRAWN  && 
+                state != Phase.COMPLETED && 
+                state != Phase.VIOLATED && 
+                state != Phase.VIOLATION_RESOLVED;
+    }
+
+    function isValidWithdraw() private view returns(bool){
+        return  state != Phase.PRICE_WITHDRAWN  && 
+                state != Phase.COMPLETED && 
+                state != Phase.VIOLATED && 
+                state != Phase.VIOLATION_RESOLVED;
+    }
+    function setEndTimes() private{
+        if(auctionEndTime == 0){
+            auctionEndTime = consumptionStartTime;
+        }
+        if(consumptionTime == 0){
+            consumptionTime = consumptionEndTime;
+        }
+    }
     /// Withdraw the gain by the sender.
     function withdrawGain() public returns (bool) {
         require(msg.sender == consumer);
-        require(!gain_withdrawn, "gain has already been withdrawn");
-        require(auctionTimeLeft() == 0, "Auction must be over to withdraw");
-        require(consumptionTimeLeft() == 0, "Consumption period must be over");
-        
-        uint amount = maxPrice - bestPrice;
-        gain_withdrawn = true;
-        msg.sender.transfer(amount);
-
-        return true;
+        require(isValidWithdrawGain(), "gain can't be withdrawn");
+        if(now >= consumptionEndTime){
+            setEndTimes();
+            uint amount = maxPrice - bestPrice;
+            state = state == Phase.PRICE_WITHDRAWN ? Phase.COMPLETED : Phase.GAIN_WITHDRAWN;
+            msg.sender.transfer(amount);
+            return true;
+        }
+        return false;
     }
     
     // withdraw price of energy by the best supplier
     function withdraw() public returns (bool) {
-        require(auctionTimeLeft() == 0, "Auction must be over to withdraw");
-        require(consumptionTimeLeft() == 0, "Consumption period must be over");
         require(msg.sender == bestSupplier);
-        require(!price_withdrawn, "price has already been withdrawn");
-
-        price_withdrawn = true;       
-        msg.sender.transfer(bestPrice);
-
-        return true;
-    }
-
-    
-    function auctionStatus() public view returns (uint,address,address,uint){
-        return (auctionTimeLeft(),bestSupplier,consumer,bestPrice);
-    }
-
-    function auctionTimeLeft() public view returns (uint) {
-        if(now > consumptionStartTime)return 0;
-        else return consumptionStartTime - now;
+        require(isValidWithdraw(), "price can't be withdrawn");
+        if(now >= consumptionEndTime){
+            setEndTimes();
+            uint amount = bestPrice;
+            state = state == Phase.GAIN_WITHDRAWN ? Phase.COMPLETED : Phase.PRICE_WITHDRAWN;
+            msg.sender.transfer(amount);
+            return true;
+        }
+        return false;
     }
     
-    function consumptionTimeLeft() public view returns (uint){
-        if(now > consumptionEndTime || now < consumptionStartTime) return 0;
-        else return consumptionEndTime - now;
+    function auctionStatus() public view returns (uint,address,address,uint,uint){
+        return (consumptionStartTime,bestSupplier,consumer,bestPrice,consumptionEndTime);
     }
 
     function withdrawableAmount() public view returns (uint){
-        if(price_withdrawn || consumptionTimeLeft() > 0) return 0;
+        if(!isValidWithdraw()) return 0;
         else return bestPrice;
     }
 
     function withdrawableGain() public view returns (uint){
-        if(gain_withdrawn || consumptionTimeLeft() > 0) return 0;
+        if(!isValidWithdrawGain()) return 0;
         else return maxPrice - bestPrice;
     }
 
@@ -142,13 +173,36 @@ contract PowerBid {
         // external contracts.
 
         //1. Conditions
-        require(consumer == msg.sender,"Only consumer can consume the negotiated power");
-        require(auctionTimeLeft() == 0, "Auction has not ended yet");
-        require(consumptionTimeLeft() > 0, "power already consumed");
+        require(state == Phase.CONSUMPTION || state == Phase.AUCTION, "Auction has not ended yet");
 
         //2. Effects
-        consumptionEndTime = now;
-        
-        emit Consumed(msg.sender, bestSupplier,requiredNRG,bestPrice);
+        if(consumer == msg.sender && now < consumptionStartTime){
+            auctionEndTime = now;
+            consumptionTime = now;
+            state = Phase.VIOLATED;
+        } else if(consumer == msg.sender && now >= consumptionStartTime){
+            state = Phase.FINISHED;
+            consumptionTime = now;
+            emit Consumed(msg.sender, bestSupplier,requiredNRG,bestPrice);
+        }else if(now >= consumptionEndTime) {
+            consumptionTime = consumptionEndTime;
+            state = Phase.FINISHED;
+        }
+    }
+
+    function resolveViolation() public {
+        require(state == Phase.VIOLATED);
+        if(bestSupplier != address(0)){
+            bestSupplier.transfer(bestPrice);
+        }
+        consumer.transfer(maxPrice-bestPrice);
+        state = Phase.VIOLATION_RESOLVED;
+    }
+
+    function destroy() public {
+        // Should be a 3rd party, trusted static account
+        // that will resolve the payments
+        require(msg.sender == consumer);
+        selfdestruct(consumer);
     }
 }

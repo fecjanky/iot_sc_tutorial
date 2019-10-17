@@ -151,11 +151,6 @@ function getSelectedSession() {
     return value !== "" ? { sessionId: +value } : {};
 }
 
-// TODO: factor out REST API URL encoding
-// TODO: implement error/logging
-// TODO: logout button
-// TODO: Display user data
-
 function getCtorAPI(args) {
     return getJSONErrorLogged('/scapi?' + encodeToURL({ __call: "getCurrentCtorAPI", ...args })).then(addCtorAPI);
 }
@@ -177,12 +172,28 @@ function setUpDynamicDecoratorsForPowerBid() {
     let candidates = { bid_in__price: "finney" };
     Object.keys(candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddScaler, candidates[id]));
 
-    let timeBasedOutputs = ["consumptionStartTime_out_0", "consumptionEndTime_out_0"];
+    let timeBasedOutputs = ["consumptionStartTime_out_0", "consumptionEndTime_out_0", "auctionEndTime_out_0", "consumptionTime_out_0"];
     timeBasedOutputs.forEach(elem => gDecorators.addTimeDecorator(document.getElementById(elem)));
 
-    let descaler_candidates = { maxPrice_out_0: "finney", bestPrice_out_0: "finney", withdrawableAmount_out_0: "finney", withdrawableGain_out_0: "finney" };
+    gDecorators.addEnumDecorator(document.getElementById("state_out_0"), [
+        "AUCTION",
+        "CONSUMPTION",
+        "FINISHED",
+        "GAIN_WITHDRAWN",
+        "PRICE_WITHDRAWN",
+        "COMPLETED",
+        "VIOLATED",
+        "VIOLATION_RESOLVED"]);
 
-    Object.keys(descaler_candidates).forEach(id => addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddDeScaler, descaler_candidates[id]));
+    let descaler_candidates = {
+        maxPrice_out_0: "finney",
+        bestPrice_out_0: "finney",
+        withdrawableAmount_out_0: "finney",
+        withdrawableGain_out_0: "finney"
+    };
+
+    Object.keys(descaler_candidates).forEach(id =>
+        addDimensionSelector(document.getElementById(id), Web3.utils.unitMap, AddDeScaler, descaler_candidates[id]));
 }
 
 
@@ -204,18 +215,21 @@ let autoRefreshAuctionClose = null;
 let autoRefreshAuction = null;
 
 function setTimersImpl(args) {
-    let auction_time_left_interval = 7 * 1000;
+
+    let refreshStatusInterval = 7 * 1000;
     let contractsRefreshInterval = 11 * 1000;
     let auctionRefreshInterval = 15 * 1000;
+
     if (!autoRefreshDeployedContracts) {
         autoRefreshDeployedContracts = setInterval(function () { getDeployedContracts(args, getJSONErrorLogged) }, contractsRefreshInterval);
     }
+
     if (!autoRefreshAuctionClose && args.type === "PowerBid") {
         autoRefreshAuctionClose = setInterval(function () {
-            callAPIFunction("auctionTimeLeft", true, getJSONErrorLogged);
-            callAPIFunction("consumptionTimeLeft", true, getJSONErrorLogged);
-        }, auction_time_left_interval);
+            refreshAuctionStatus();
+        }, refreshStatusInterval);
     }
+
     if (!autoRefreshAuction && args.type === "PowerBid") {
         autoRefreshAuction = setInterval(function () {
             monitoredBids.refresh();
@@ -246,8 +260,14 @@ function onLoad(args = {}) {
         }
         delete e['returnValue'];
     });
-    monitoredBids = MonitoredContracts.loadFromSession();
-    getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
+
+    getUserData()
+        .then(r => getAllSessions())
+        .then(r => getDeployedContracts(args))
+        .then(r => getCtorAPI(args))
+        .then(r => {
+            monitoredBids = MonitoredContracts.loadFromSession();
+        });
     document.getElementById("logArea").innerHTML = "";
     document.getElementById("auto-refresh").checked = true;
     addDimensionSelector(document.getElementById("input_value"), Web3.utils.unitMap, AddScaler, "finney");
@@ -282,6 +302,7 @@ function createContract() {
     };
     createContract_impl(args).then(result => {
         monitoredBids.add(result.address, { owner: true });
+        refreshAuctionStatus();
     });
 }
 function createFreeStyleContract() {
@@ -350,6 +371,13 @@ class Decorators {
         };
     }
 
+    addEnumDecorator(subject, mapping) {
+        this.decorators[subject.id] = function (value) {
+            let idx = Number(value);
+            return idx < mapping.length ? mapping[idx] : "UNKNOWN";
+        };
+    }
+
     decorate(id, value) {
         return this.decorators[id] !== undefined ? this.decorators[id](value) : value;
     }
@@ -406,55 +434,108 @@ function replaceContractStyle(contract, newStyle) {
     c.classList.add(newStyle);
 }
 
+function timeLeft(referencePoint, watermark = null) {
+    let now = Date.now();
+    if (watermark !== null && now < Number(watermark) * 1000) return 0;
+    let refInMillis = Number(referencePoint) * 1000;
+    return Math.round(refInMillis - now < 0 ? 0 : (refInMillis - now) / 1000);
+}
+
+function refreshAuctionStatus() {
+    if (selectedContract === null) return;
+    getJSONErrorLogged(`/scapi?__call=callContract&__name=auctionStatus&__address=${selectedContract}`).then(status => {
+        let auctionTimeLeftNode = document.getElementById("currentAuctionTimeLeft");
+        auctionTimeLeftNode.value = timeLeft(status[0]);
+        let consumptionTimeLeftNode = document.getElementById("currentConsumptionTimeLeft");
+        consumptionTimeLeftNode.value = timeLeft(status[4], status[0]);
+    });
+}
+
 class MonitoredContracts {
-    constructor(monitored = null) {
-        this.monitored = monitored === null ? [] : monitored;
+    constructor(monitored = null, done = null) {
+        this.monitored = monitored === null ? {} : monitored;
+        this.done = done === null ? {} : done;
     }
     persist() {
-        window.sessionStorage.setItem("monitoredContracts", JSON.stringify(this.monitored));
+        window.sessionStorage.setItem("monitoredContracts", JSON.stringify(this));
     }
 
     static loadFromSession() {
-        let stored = window.sessionStorage.getItem("monitoredContracts");
-        window.sessionStorage.removeItem('monitoredContracts')
-        return new MonitoredContracts(JSON.parse(stored));
+        let restored = JSON.parse(window.sessionStorage.getItem("monitoredContracts"));
+        window.sessionStorage.removeItem('monitoredContracts');
+        let monitored = new MonitoredContracts();
+        if (restored !== null) {
+            monitored.monitored = restored.monitored;
+            monitored.done = restored.done;
+        }
+        for (let contract in monitored.monitored) {
+            if (monitored.monitored[contract].owner !== true) {
+                replaceContractStyle(contract, "monitoredContract");
+            }
+        }
+        monitored.refresh();
+        monitored.refreshDone();
+        return monitored;
     }
 
     add(contract, opts = {}) {
         let contractObj = document.getElementById(contract);
-        if (contractObj !== null && opts.owner !== true) {
-            replaceContractStyle(contractObj.id, "monitoredContract");
+        if (contractObj !== null) {
+            if (opts.owner !== true) {
+                replaceContractStyle(contractObj.id, "monitoredContract");
+            }
+            this.monitored[contract] = { owner: opts.owner === true };
         }
-        this.monitored.push(contract)
     }
 
-    refresh() {
-        let deployedContracts = Object.fromEntries(Array.from(document.getElementById("deployedContracts").childNodes).filter(elem => elem.id !== undefined).map(elem => [elem.id, true]));
-        let toRefresh = this.monitored.filter(elem => deployedContracts.hasOwnProperty(elem));
+    ready(contract) {
+        if (this.monitored[contract] !== undefined) {
+            this.done[contract] = this.monitored[contract];
+            delete this.monitored[contract];
+        }
+    }
 
+    visibleContracts() {
+        return Object.fromEntries(Array.from(document.getElementById("deployedContracts").childNodes)
+            .filter(elem => elem.id !== undefined).map(elem => [elem.id, true]));
+    }
+
+    refreshSpecific(toRefresh) {
         Promise.all(toRefresh.map(contract => Promise.all(
             [Promise.resolve(contract), getJSONErrorLogged(`/scapi?__call=callContract&__name=auctionStatus&__address=${contract}`)])))
             .then(arrResults => {
                 arrResults.map(elem => {
                     let [contract, arr] = elem;
-                    let time_left = Number(arr["0"]);
+                    let time_left = timeLeft(Number(arr["0"]));
                     let bestSupplier = arr["1"];
                     let owner = arr["2"];
                     let bestPrice = arr["3"];
                     if (time_left <= 0 && (owner !== getUser() && bestSupplier === getUser())) {
                         replaceContractStyle(contract, "wonContract");
-                        this.monitored = this.monitored.filter(c => c !== contract);
+                        this.ready(contract);
                     } else if (time_left <= 0 && owner !== getUser() && bestSupplier !== getUser()) {
                         replaceContractStyle(contract, "lostContract");
-                        this.monitored = this.monitored.filter(c => c !== contract);
+                        this.ready(contract);
                     } else if (time_left > 0 && owner !== getUser() && bestSupplier !== getUser()) {
                         replaceContractStyle(contract, "aboutToLoseContract");
                     } else if (time_left <= 0 && owner === getUser()) {
                         replaceContractStyle(contract, "myExpiredContract");
-                        this.monitored = this.monitored.filter(c => c !== contract);
+                        this.ready(contract);
                     }
                 });
             });
+    }
+
+    refresh() {
+        let deployedContracts = this.visibleContracts();
+        let toRefresh = Object.keys(this.monitored).filter(elem => deployedContracts.hasOwnProperty(elem));
+        this.refreshSpecific(toRefresh);
+    }
+
+    refreshDone() {
+        let deployedContracts = this.visibleContracts();
+        let toRefresh = Object.keys(this.done).filter(elem => deployedContracts.hasOwnProperty(elem));
+        this.refreshSpecific(toRefresh);
     }
 }
 
@@ -497,7 +578,6 @@ class APIElem {
     callFunction(noStatus = false, getter = getJSONLogged) {
         let currentContract = selectedContract;
         return getter(this.toURLCall(this.getAllInputs()), noStatus ? null : document.getElementById(`${this.name}_status`)).then(function (result) {
-            // TODO:handle array return type
             if (currentContract == selectedContract) {
                 this.getAllOutputs().map((output, index) => {
                     output.value = gDecorators.decorate(output.id, this.outputs.length > 1 ? result[index] : result);
@@ -507,15 +587,33 @@ class APIElem {
         }.bind(this));
     }
     toHTML() {
-        let inputs = this.inputs.map(elem => `<div  class="centered" ><input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" ></div>`).join('');
+        let inputs = this.inputs.map(elem =>
+            `<div  class="centered" >
+                <input type="text" id="${this.name}_in_${elem.name}" value="" placeholder="${elem.name}" >
+            </div>`).join('');
+
         if (inputs.length === 0) {
             inputs = "<div class='centered'>()</div>";
         }
-        let outputs = this.outputs.map((elem, index) => `<div class="centered" ><input type="text" id="${this.name}_out_${index}" value=""></div>`).join('');
+        let outputs = this.outputs.map((elem, index) =>
+            `<div class="centered" >
+                <input type="text" id="${this.name}_out_${index}" value="">
+            </div>`).join('');
+
         if (outputs.length === 0) {
             outputs = "<div class='centered'>()</div>";
         }
-        return `<div class="horizontal-layout" id="${this.name}"><div  class="centered"><button type="button" id="${this.name}_button" class="apiButton${this.stateMutability !== "view" ? " apiButtonModifier" : ""}" onClick="callAPIFunction(this.id)"> ${this.name}</button></div><div id="${this.name}_status" class="StatusSymbol"></div>` + inputs + "<div class='centered'> => </div>" + outputs + "</div>";
+        return `<div class="horizontal-layout" id="${this.name}">
+                    <div  class="centered">
+                        <button type="button" id="${this.name}_button" class="apiButton${this.stateMutability !== "view" ? " apiButtonModifier" : ""}" onClick="callAPIFunction(this.id)">
+                            ${this.name}
+                        </button>
+                    </div>
+                    <div id="${this.name}_status" class="StatusSymbol"></div>`
+            + inputs
+            + "<div class='centered'> => </div>"
+            + outputs
+            + "</div>";
     };
 
     placeholder() {
@@ -539,56 +637,91 @@ function defaultRenderer(address, api) {
     setUpDynamicDecorators();
 }
 
+function createTag(name) {
+    let tag = document.createElement("div");
+    tag.innerHTML = name;
+    tag.classList.add("button");
+    return tag;
+};
+
+function createPhaseContainer() {
+    let container = document.createElement("div");
+    container.classList.add("PhaseContainer");
+    container.classList.add("horizontal-layout");
+    container.classList.add("padded")
+    return container;
+}
+
+function createStatusField(id, name) {
+    let field = document.createElement("div");
+    field.classList.add("horizontal-layout");
+    let input = document.createElement("INPUT");
+    input.setAttribute("type", "text");
+    input.id = id;
+    input.placeholder = name;
+    field.appendChild(createTag(name));
+    field.appendChild(input);
+    return field;
+}
+
+function renderStatusContainer() {
+    let container = createPhaseContainer();
+    container.appendChild(createPhaseController("Status"));
+    let StatusElemsHolder = document.createElement("div");
+    StatusElemsHolder.classList.add("horizontal-layout");
+    StatusElemsHolder.appendChild(createStatusField("currentAuctionTimeLeft", "Auction Time Left"));
+    StatusElemsHolder.appendChild(createStatusField("currentConsumptionTimeLeft", "Consumption Time Left"));
+    container.appendChild(StatusElemsHolder);
+    return container;
+}
+
+function createPhaseController(phaseName, onClick = null) {
+    let controller = document.createElement("div");
+    controller.classList.add("vertical-layout");
+    controller.classList.add("PhaseControl");
+    controller.appendChild(createTag(phaseName));
+
+    if (onClick !== null) {
+        let getter = document.createElement("button");
+        getter.innerHTML = "Refresh All";
+        getter.onclick = onClick;
+        controller.appendChild(getter);
+    }
+    return controller;
+}
+
 function powerBidRenderer(address, api) {
     selectedAPI = [];
     let grouping = {
-        "Auction Phase": ["consumer", "maxPrice", "requiredNRG", "bestSupplier", "bestPrice", "auctionTimeLeft", "bid"],
-        "Consume Phase": ["consumptionStartTime", "consumptionEndTime", "consumptionTimeLeft", "consumePower"],
-        "Finish Phase": ["withdraw", "withdrawGain", "withdrawableAmount", "withdrawableGain"]
+        "Auction Phase": ["consumer", "maxPrice", "requiredNRG", "bestSupplier", "bestPrice", "bid", "auctionEnd"],
+        "Consume Phase": ["consumptionStartTime", "consumptionEndTime", "consumePower"],
+        "Finish Phase": ["withdraw", "withdrawGain", "withdrawableAmount", "withdrawableGain"],
+        "State": ["state", "auctionEndTime", "consumptionTime", "resolveViolation"],
     };
     let renderPhase = function (phaseName, functions) {
-        let holder = document.createElement("div");
-
-        holder.classList.add("PhaseContainer");
-        holder.classList.add("horizontal-layout");
-        holder.classList.add("padded");
+        let container = createPhaseContainer();
 
         let APIElemsHolder = document.createElement("div");
         APIElemsHolder.classList.add("vertical-layout");
 
-        let PhaseControlHolder = document.createElement("div");
-        PhaseControlHolder.classList.add("vertical-layout");
-        PhaseControlHolder.classList.add("PhaseControl");
-
-        let apiElems = functions.map(f => {
+        let apiElems = functions.filter(f => api.find(elem => elem.name === f && elem.type === "function") !== undefined).map(f => {
             let apiFunction = api.find(elem => elem.name === f && elem.type === "function");
-            if (apiFunction !== undefined) {
-                return new APIElem(address, apiFunction);
-            }
-            return undefined;
+            return new APIElem(address, apiFunction);
         });
+
         APIElemsHolder.innerHTML = apiElems.filter(elem => elem !== undefined).map(elem => elem.toHTML()).join('');
         selectedAPI.push(...apiElems);
 
-        let PhaseControlTag = document.createElement("div");
-        PhaseControlTag.innerHTML = phaseName;
-        PhaseControlTag.classList.add("button");
-
-        let PhaseControlGetter = document.createElement("button");
-        PhaseControlGetter.innerHTML = "Refresh All";
-        PhaseControlGetter.onclick = function () {
+        container.appendChild(createPhaseController(phaseName, function () {
             apiElems.filter(elem => elem.stateMutability === "view").forEach(elem => elem.callFunction());
-        }
+        }));
 
-        PhaseControlHolder.appendChild(PhaseControlTag);
-        PhaseControlHolder.appendChild(PhaseControlGetter)
-
-        holder.appendChild(PhaseControlHolder);
-        holder.appendChild(APIElemsHolder);
-        return holder;
+        container.appendChild(APIElemsHolder);
+        return container;
     };
     let callAPI = document.getElementById('callAPI');
     clearAPI();
+    callAPI.appendChild(renderStatusContainer());
     Object.keys(grouping).forEach(key => {
         callAPI.appendChild(renderPhase(key, grouping[key]));
     });
