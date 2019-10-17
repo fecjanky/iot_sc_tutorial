@@ -122,7 +122,7 @@ contract PowerBid {
         if(now >= consumptionEndTime){
             setEndTimes();
             uint amount = maxPrice - bestPrice;
-            state = state == Phase.PRICE_WITHDRAWN ? Phase.COMPLETED : Phase.GAIN_WITHDRAWN;
+            state = state == Phase.PRICE_WITHDRAWN || bestSupplier == address(0) ? Phase.COMPLETED : Phase.GAIN_WITHDRAWN;
             msg.sender.transfer(amount);
             return true;
         }
@@ -136,7 +136,7 @@ contract PowerBid {
         if(now >= consumptionEndTime){
             setEndTimes();
             uint amount = bestPrice;
-            state = state == Phase.GAIN_WITHDRAWN ? Phase.COMPLETED : Phase.PRICE_WITHDRAWN;
+            state = state == Phase.GAIN_WITHDRAWN || (maxPrice - bestPrice) == 0 ? Phase.COMPLETED : Phase.PRICE_WITHDRAWN;
             msg.sender.transfer(amount);
             return true;
         }
