@@ -240,6 +240,13 @@ function autoRefreshChanged(checkbox) {
 }
 
 function onLoad(args = {}) {
+    window.addEventListener('beforeunload', function (e) {
+        if (monitoredBids !== null) {
+            monitoredBids.persist();
+        }
+        delete e['returnValue'];
+    });
+    monitoredBids = MonitoredContracts.loadFromSession();
     getUserData().then(r => getAllSessions()).then(r => getDeployedContracts(args)).then(r => getCtorAPI(args));
     document.getElementById("logArea").innerHTML = "";
     document.getElementById("auto-refresh").checked = true;
@@ -400,9 +407,19 @@ function replaceContractStyle(contract, newStyle) {
 }
 
 class MonitoredContracts {
-    constructor() {
-        this.monitored = [];
+    constructor(monitored = null) {
+        this.monitored = monitored === null ? [] : monitored;
     }
+    persist() {
+        window.sessionStorage.setItem("monitoredContracts", JSON.stringify(this.monitored));
+    }
+
+    static loadFromSession() {
+        let stored = window.sessionStorage.getItem("monitoredContracts");
+        window.sessionStorage.removeItem('monitoredContracts')
+        return new MonitoredContracts(JSON.parse(stored));
+    }
+
     add(contract, opts = {}) {
         let contractObj = document.getElementById(contract);
         if (contractObj !== null && opts.owner !== true) {
@@ -441,7 +458,7 @@ class MonitoredContracts {
     }
 }
 
-let monitoredBids = new MonitoredContracts();
+let monitoredBids = null;
 
 let onAPICallSuccess = {
     "bid": function (result) {
